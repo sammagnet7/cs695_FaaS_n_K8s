@@ -1,0 +1,13 @@
+create user cs695;
+create database faas  with owner = cs695;
+
+CREATE TABLE fn_registry(
+    fn_id int,
+    fn_name varchar(255),
+    runtime varchar(255),
+    source_code text,
+    requirements text,
+    entry_fn varchar(1024)
+);
+GRANT ALL ON fn_registry TO cs695;
+
