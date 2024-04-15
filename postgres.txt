@@ -1,13 +1,21 @@
 create user cs695;
 create database faas  with owner = cs695;
 
-CREATE TABLE fn_registry(
-    fn_id int,
-    fn_name varchar(255),
+DROP table fn_registry;
+
+CREATE TABLE fn_registry (
+    fn_id SERIAL PRIMARY KEY,
+    fn_name varchar(255) UNIQUE NOT NULL,
     runtime varchar(255),
     source_code text,
     requirements text,
-    entry_fn varchar(1024)
+    entry_fn varchar(1024),
+    trigger_type varchar(255),
+    event_type varchar(255),
+    bucket_id varchar(255)
 );
+
+
 GRANT ALL ON fn_registry TO cs695;
+
 
