@@ -25,7 +25,7 @@ public class FnRegistryService {
 		int savedFnId = savedFnRegistry.getFnId();
 
 
-		String channel_name = registerRequest.getBucketId() + "_" + registerRequest.getEventType() + "_" + "channel";
+		String channel_name = registerRequest.getBucketName() + "_" + registerRequest.getEventType() + "_" + "channel";
 
 		Thread subscriptionThread = new Thread(() -> redisSubscriber.subscribeToChannel( channel_name,savedFnId ) );
 		subscriptionThread.start();
@@ -53,7 +53,7 @@ public class FnRegistryService {
 		fnRegistry.setEntryFn(registerRequest.getEntryFn());
 		fnRegistry.setTriggerType(registerRequest.getTriggerType().toString());
 		fnRegistry.setEventType(registerRequest.getEventType().toString());
-		fnRegistry.setBucketId(registerRequest.getBucketId());
+		fnRegistry.setBucketId(registerRequest.getBucketName());
 	}
 
 }

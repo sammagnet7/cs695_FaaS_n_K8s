@@ -12,20 +12,13 @@ public class RegisterRequest {
     private String entryFn;
     private TriggerType triggerType;
     private EventType eventType;
-    private String bucketId;
+    private String bucketName;
     
     private String bucket_id;
     
     public enum TriggerType {
         HTTP,
         CLOUD_STORAGE
-    }
-
-    public enum EventType {
-        CREATE,
-        INSERT,
-        DELETE,
-        MODIFY
     }
 }
 
