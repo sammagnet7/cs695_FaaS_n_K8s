@@ -123,7 +123,6 @@ public class S4BucketService {
 			List<Map<String, Object>> dataList = jdbcTemplate.queryForList("SELECT * FROM " + bucketName);
 			return ResponseEntity.ok(dataList);
 		} catch (BadSqlGrammarException e) {
-			e.printStackTrace();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("The specified bucket does not exist.");
 		} catch (Exception e) {
 			e.printStackTrace();

@@ -1,7 +1,5 @@
 package com.iitb.faas.RegistryService;
 
-import java.sql.Timestamp;
-import java.time.Instant;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,24 +36,24 @@ public class FnRegistryService {
 
 		FnRegistry fnRegistry = new FnRegistry();
 		setRepoProperties(registerRequest, fnRegistry);
+		
 		FnRegistry savedFnRegistry = fnRegistryRepository.save(fnRegistry);
-		int savedFnId = savedFnRegistry.getFnId();
 
 		RegisterRequest_Downline downline_req = new RegisterRequest_Downline();
 		setDownlineProperties(registerRequest, downline_req);
-		
 		String url_register = downlineUrl + "/api/v1/register";		
+		
 		ResponseEntity<String> response = downline_post(downline_req, url_register);
 		
 		if (response.getStatusCode() != HttpStatus.CREATED) {
 			throw new RuntimeException("Failed to register function into DOWNLINE. Unexpected status code: "
 					+ response.getStatusCode().value());
 		}
-
-		String channel_name = registerRequest.getBucketName() + "_" + registerRequest.getEventType() + "_" + "channel";
-
-		Thread subscriptionThread = new Thread(() -> redisSubscriber.subscribeToChannel(channel_name, savedFnId));
-		subscriptionThread.start();
+		
+		/*
+		 * Subscribe on a channel creating a new thread
+		 */
+		redisSubscriber.subscribeToChannel(savedFnRegistry);
 
 	}
 

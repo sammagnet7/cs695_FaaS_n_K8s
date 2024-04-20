@@ -2,7 +2,6 @@ package com.iitb.faas.RegistryService;
 
 import java.io.IOException;
 import java.sql.Timestamp;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -10,11 +9,15 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.data.redis.connection.jedis.JedisConnectionFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -27,15 +30,20 @@ import org.springframework.web.client.RestTemplate;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisException;
+
 @Component
 public class TriggerUtil implements ApplicationContextAware {
 
 	private static ApplicationContext context;
-
 	private static String downlineUrl;
 
-	private static final int POLDURATION_MIN = 5;
+	private static final int POLDURATION_MIN = 10;
 	private static final int POLINTERVAL_SEC = 10;
+
+	private static AtomicInteger sharedTriggerCount = new AtomicInteger(0);
+	private static ThreadLocal<Integer> threadLocalCount = ThreadLocal.withInitial(() -> 0);
 
 	@Override
 	public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
@@ -47,8 +55,12 @@ public class TriggerUtil implements ApplicationContextAware {
 		TriggerUtil.downlineUrl = downlineUrl;
 	}
 
-	public static void handleTrigger(int fn_id) {
+	public static void handleTrigger(FnRegistry savedFnRegistry, String message) {
 
+		/*
+		 * Setup the counter variables to handle multiple triggers
+		 */
+		setLocalCounter();
 		/*
 		 * Getting Spring beans from context to use further
 		 */
@@ -57,13 +69,21 @@ public class TriggerUtil implements ApplicationContextAware {
 		}
 		FnRegistryRepository fnRegistryRepository = context.getBean(FnRegistryRepository.class);
 		RestTemplate restTemplate = context.getBean(RestTemplate.class);
+		JedisConnectionFactory jedisConnectionFactory = context.getBean(JedisConnectionFactory.class);
+
+		/*
+		 * Creates Job Queue with current Function name and Bucket ID. Pushes IDs passed
+		 * by the Publisher into the newly created Queue
+		 */
+		String fnNm_buckId_queue = savedFnRegistry.getFnName() + "_" + savedFnRegistry.getBucketId() + "_" + "queue";
+		createIDQueue(jedisConnectionFactory, message, fnNm_buckId_queue);
 
 		/*
 		 * Update Function status and Trigger time into Function registry as PROCESSING
 		 */
-		FnRegistry fnRegistry = fnRegistryRepository.findById(fn_id).orElse(null);
+		FnRegistry fnRegistry = fnRegistryRepository.findById(savedFnRegistry.getFnId()).orElse(null);
 		if (fnRegistry == null) {
-			throw new RuntimeException("Function Registry not found for ID" + fn_id);
+			throw new RuntimeException("Function Registry not found for ID " + savedFnRegistry.getFnId());
 		}
 
 		fnRegistry.setTriggerTime(Timestamp.from(Instant.now()));
@@ -73,7 +93,7 @@ public class TriggerUtil implements ApplicationContextAware {
 		/*
 		 * Triggering Downline service to process the Function
 		 */
-		System.out.println("\n--- Running downline Trigger handler ---\n");
+		System.out.println("\n--- Running downline Trigger handler  ---\n");
 
 		String url_dispatch = downlineUrl + "/api/v1/dispatch";
 		ResponseEntity<String> response = downline_post(fnRegistry, url_dispatch, restTemplate);
@@ -85,24 +105,36 @@ public class TriggerUtil implements ApplicationContextAware {
 		}
 
 		/*
-		 * Poll Downline status endpoint to check for the completion status of the Function
+		 * The triggPoll Downline status endpoint to check for the completion status of
+		 * the Function
 		 */
 		String url_status = downlineUrl + "/api/v1/status/" + fnRegistry.getFnName();
 
 		Map<String, String> finalPollResp = pollStatus(restTemplate, url_status);
-		
-		String finalStatus = finalPollResp.get("status");
-		Timestamp finishTimestamp = Timestamp.from(OffsetDateTime.parse(finalPollResp.get("finishTime")).toInstant());
 
 		/*
-		 * Save final Status to Function Registry
+		 * Save final poll Status to Function Registry and removing the queue from Redis
+		 * server
 		 */
-		fnRegistry.setStatus(Status.valueOf(finalStatus));
-		fnRegistry.setFinishTime(finishTimestamp);
+		if (sharedTriggerCount.get() == threadLocalCount.get()) {
 
-		fnRegistry = fnRegistryRepository.save(fnRegistry);
+			String finalStatus = finalPollResp.get("status");
+			Timestamp finishTimestamp = finalPollResp.get("finishTime") != null
+					? Timestamp.from(OffsetDateTime.parse(finalPollResp.get("finishTime")).toInstant())
+					: null;
 
-		System.out.println("Final status after polling: " + finalStatus);
+			fnRegistry.setStatus(Status.valueOf(finalStatus));
+			fnRegistry.setFinishTime(finishTimestamp);
+
+			fnRegistry = fnRegistryRepository.save(fnRegistry);
+
+			removeIDQueue(jedisConnectionFactory, fnNm_buckId_queue);
+
+			System.out.println("Final status after polling: " + finalStatus);
+		} else {
+			System.out.println("Obsolute polling thread exiting..");
+		}
+
 	}
 
 	private static ResponseEntity<String> downline_post(FnRegistry downlineRequest, String url, RestTemplate template) {
@@ -120,13 +152,18 @@ public class TriggerUtil implements ApplicationContextAware {
 	private static Map<String, String> pollStatus(RestTemplate restTemplate, String url) {
 
 		LocalDateTime endTime = LocalDateTime.now().plusMinutes(POLDURATION_MIN);
-		String status = Status.CREATED.name();
 
+		String status = Status.PROCESSING.name();
 		Map<String, String> resp = new HashMap<String, String>();
-		while (!status.equals(Status.FAILED.name()) && !status.equals(Status.SUCCESS.name())
-				&& LocalDateTime.now().isBefore(endTime)) {
+		resp.put("status", status);
+
+		while ((!status.equals(Status.FAILED.name())) && (!status.equals(Status.SUCCESS.name()))
+				&& (sharedTriggerCount.get() == threadLocalCount.get())) {
+
 			try {
-				// Wait for 10 seconds before making the next request
+				if (!LocalDateTime.now().isBefore(endTime)) {
+					throw new RuntimeException("Time out polling");
+				}
 				TimeUnit.SECONDS.sleep(POLINTERVAL_SEC);
 
 				// Make request and get status
@@ -134,11 +171,9 @@ public class TriggerUtil implements ApplicationContextAware {
 
 				// Logging
 				status = resp.get("status");
-				Duration remainingTime = Duration.between(LocalDateTime.now(), endTime);
-				System.out.println("Remaining wait time: " + remainingTime.toSeconds() + " seconds");
 				System.out.println("Current poll status: " + status);
 
-			} catch (InterruptedException e) {
+			} catch (Exception e) {
 				Thread.currentThread().interrupt();
 				e.printStackTrace();
 
@@ -180,6 +215,53 @@ public class TriggerUtil implements ApplicationContextAware {
 			e.printStackTrace();
 			return Collections.emptyMap();
 		}
+	}
+
+	private static String[] imageIDExtractor(String msg) {
+
+		Pattern pattern = Pattern.compile("\\[(.*?)\\]");
+		Matcher matcher = pattern.matcher(msg);
+		String entries = "";
+		if (matcher.find()) {
+			entries = matcher.group(1);
+		}
+		String[] ids = entries.split(",\\s*");
+
+		return ids;
+	}
+
+	private static void createIDQueue(JedisConnectionFactory jedisConnectionFactory, String message, String queue) {
+
+		String[] imgIDs = imageIDExtractor(message);
+
+		try (Jedis jedis = (Jedis) jedisConnectionFactory.getConnection().getNativeConnection()) {
+
+			for (String id : imgIDs) {
+				String trimmedId = id.trim().replaceAll("[\\[\\]]", "");
+
+				jedis.lpush(queue, trimmedId);
+			}
+
+			System.out.println("Entries pushed successfully to Redis queue: " + queue);
+		} catch (JedisException e) {
+			System.err.println("Redis operation failed: " + e.getMessage());
+		}
+	}
+
+	private static void removeIDQueue(JedisConnectionFactory jedisConnectionFactory, String queue) {
+
+		try (Jedis jedis = (Jedis) jedisConnectionFactory.getConnection().getNativeConnection()) {
+
+			jedis.del(queue);
+
+			System.out.println("Deleted Redis queue: " + queue);
+		} catch (JedisException e) {
+			System.err.println("Redis operation failed: " + e.getMessage());
+		}
+	}
+
+	private static synchronized void setLocalCounter() {
+		threadLocalCount.set(sharedTriggerCount.incrementAndGet());
 	}
 
 }

@@ -48,7 +48,7 @@ public class BucketController {
 		/*
 		 * sending uploaded image IDs to the subscribers
 		 */
-		bucketService.publishToChannel(channel_name, uploadIntoBucketResp.getBody().toString());
+		bucketService.publishToChannel(channel_name, "Inserted image IDs are: "+uploadIntoBucketResp.getBody().toString());
 
 		return uploadIntoBucketResp;
 	}

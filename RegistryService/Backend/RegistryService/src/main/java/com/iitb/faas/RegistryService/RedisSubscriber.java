@@ -23,24 +23,33 @@ public class RedisSubscriber {
 
 	}
 
-	public void subscribeToChannel(String channel, int fn_id) {
+	public void subscribeToChannel(FnRegistry savedFnRegistry) {
 
-		System.out.println("*** Subscribing to channel: " + channel+" ***");
+		String channel = savedFnRegistry.getBucketId() + "_" + savedFnRegistry.getEventType() + "_" + "channel";
+		System.out.println("*** Subscribing to channel: " + channel + " ***");
+
+		/*
+		 * Creating a Redis listener which subscribe to the given channel
+		 */
 		MessageListener messageListener = (message, pattern) -> {
 
-			System.out.println("Received message: " + new String(message.getBody()) + " from channel: " + channel
-					+ " on thread: " + Thread.currentThread().getId());
-			TriggerUtil.handleTrigger(fn_id);
-			
+			System.out.println("Received message from Publisher " + "on channel: " + channel + " :: " + message );
+
+			/*
+			 * Calls the method asynchronously to handle the trigger
+			 */
+			TriggerUtil.handleTrigger(savedFnRegistry, new String(message.getBody()));
+
 		};
+
 		listenerContainer.addMessageListener(messageListener, new ChannelTopic(channel));
-		channelListeners.put(fn_id, messageListener);
+		channelListeners.put(savedFnRegistry.getFnId(), messageListener);
 
 	}
 
 	public void unsubscribeFromChannel(String channel, int fn_id) {
 
-		System.out.println("*** Unsubscribing from channel: " + channel +" ***");
+		System.out.println("*** Unsubscribing from channel: " + channel + " ***");
 
 		MessageListener messageListener = channelListeners.remove(fn_id);
 
