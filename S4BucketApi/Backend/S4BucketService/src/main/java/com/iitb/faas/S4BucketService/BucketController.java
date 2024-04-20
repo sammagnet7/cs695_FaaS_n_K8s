@@ -1,5 +1,7 @@
 package com.iitb.faas.S4BucketService;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/s4")
 public class BucketController {
 
-	final String MSG = "Designated Trigger is hit";
+	private String triggerMsg = "Designated Trigger is hit on Bucket: ";
 
 	@Autowired
 	private S4BucketService bucketService;
@@ -26,7 +28,7 @@ public class BucketController {
 		var createBucketResp = bucketService.createBucket(bucketName);
 
 		String channel_name = bucketName + "_" + EventType.CREATE_BUCKET.toString() + "_" + "channel";
-		bucketService.publishToChannel(channel_name, MSG);
+		bucketService.publishToChannel(channel_name, triggerMsg + bucketName);
 
 		return createBucketResp;
 	}
@@ -37,9 +39,16 @@ public class BucketController {
 		var uploadIntoBucketResp = bucketService.uploadIntoBucket(uploadRequest.getBucketName(),
 				uploadRequest.getBase64Images());
 
+		/*
+		 * creating the Channel name string
+		 */
 		String channel_name = uploadRequest.getBucketName() + "_" + EventType.UPLOAD_INTO_BUCKET.toString() + "_"
 				+ "channel";
-		bucketService.publishToChannel(channel_name, MSG);
+
+		/*
+		 * sending uploaded image IDs to the subscribers
+		 */
+		bucketService.publishToChannel(channel_name, uploadIntoBucketResp.getBody().toString());
 
 		return uploadIntoBucketResp;
 	}
@@ -52,7 +61,7 @@ public class BucketController {
 
 		String channel_name = deleteRequest.getBucketName() + "_" + EventType.DELETE_FROM_BUCKET.toString() + "_"
 				+ "channel";
-		bucketService.publishToChannel(channel_name, MSG);
+		bucketService.publishToChannel(channel_name, triggerMsg + deleteRequest.getBucketName());
 
 		return deleteFromBucketResp;
 	}
@@ -63,26 +72,27 @@ public class BucketController {
 		var deleteBucketResp = bucketService.deleteBucket(bucketName);
 
 		String channel_name = bucketName + "_" + EventType.DELETE_BUCKET.toString() + "_" + "channel";
-		bucketService.publishToChannel(channel_name, MSG);
+		bucketService.publishToChannel(channel_name, triggerMsg + bucketName);
 
 		return deleteBucketResp;
 	}
 
-	@GetMapping("/downloadImage")
-	public ResponseEntity<?> downloadImage(@RequestBody S4BucketRequest downloadRequest) {
+	@GetMapping("/downloadImage/{bucketName}/{imageId}")
+	public ResponseEntity<?> downloadImage(@PathVariable String bucketName, @PathVariable String imageId) {
 
-		String imageDataBase64 = bucketService.getImageDataAsBase64(downloadRequest.getBucketName(),
-				Long.parseLong(downloadRequest.getImageId()));
+		var imageDataBase64 = bucketService.getImageFromBucket(bucketName, Long.parseLong(imageId));
 
-		String channel_name = downloadRequest.getBucketName() + "_" + EventType.DOWNLOAD_IMAGE.toString() + "_"
-				+ "channel";
-		bucketService.publishToChannel(channel_name, MSG);
+		String channel_name = bucketName + "_" + EventType.DOWNLOAD_IMAGE.toString() + "_" + "channel";
+		bucketService.publishToChannel(channel_name, triggerMsg + bucketName);
 
-		if (imageDataBase64 != null) {
-			return ResponseEntity.ok(imageDataBase64);
-		} else {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Image not found");
-		}
+		return imageDataBase64;
+	}
+
+	@GetMapping("/getAllFromBucket/{bucketName}")
+	public ResponseEntity<?> getAllImagesInBucket(@PathVariable String bucketName) {
+
+		return bucketService.getAllDataFromBucket(bucketName);
+
 	}
 
 }

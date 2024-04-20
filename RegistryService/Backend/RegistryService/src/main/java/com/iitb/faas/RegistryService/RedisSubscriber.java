@@ -30,8 +30,7 @@ public class RedisSubscriber {
 
 			System.out.println("Received message: " + new String(message.getBody()) + " from channel: " + channel
 					+ " on thread: " + Thread.currentThread().getId());
-			
-			ExternalServiceUtil.run();
+			TriggerUtil.handleTrigger(fn_id);
 			
 		};
 		listenerContainer.addMessageListener(messageListener, new ChannelTopic(channel));
