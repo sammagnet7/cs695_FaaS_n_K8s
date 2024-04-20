@@ -1,0 +1,10 @@
+// action - customization reducer
+export const SET_MENU = '@customization/SET_MENU';
+export const MENU_TOGGLE = '@customization/MENU_TOGGLE';
+export const MENU_OPEN = '@customization/MENU_OPEN';
+export const SET_FONT_FAMILY = '@customization/SET_FONT_FAMILY';
+export const SET_BORDER_RADIUS = '@customization/SET_BORDER_RADIUS';
+export const SAVE_FORM_BASIC = '@basicform/SAVE_FORM_BASIC'
+export const SAVE_CODE_DEPS = '@code/SAVE_CODE_DEPS'
+export const ADD_FUNCTION = '@log/ADD_FUNCTION'
+export const UPDATE_FUNCTION = '@log/UPDATE_FUNCTION'
