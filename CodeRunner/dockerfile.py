@@ -1,14 +1,24 @@
-def generate_dockerfile(runtime_type):
+images = {"python": "python:slim"}
+
+
+def generate_dockerfile(runtime_type, command=None, has_dependency: bool = False):
     # Generate Dockerfile content based on runtime type
     # Example: for Python runtime
     dockerfile = ""
     if runtime_type == "python":
         dockerfile = f"""
-        FROM python:3.9-slim
+        FROM {images.get(runtime_type)}
         WORKDIR /app
-        COPY app.py /app/
-        CMD ["python", "app.py"]
+        COPY ./ /app/
         """
+        if has_dependency:
+            dockerfile += (
+                "RUN pip install -r requirements.txt\n"  # Install dependencies
+            )
+        if command:
+            dockerfile += f"CMD {command}\n"
+        else:
+            dockerfile += 'CMD ["python", "app.py"]\n'
     # Save the code to a file
     file_name = "Dockerfile"
     file_path = f"uploads/{file_name}"  # Example file path

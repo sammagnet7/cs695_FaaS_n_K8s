@@ -2,7 +2,7 @@
 Creates, Gets logs & status, and deletes a job object.
 """
 
-from kubernetes import client, config
+from kubernetes import client, config, watch
 import time
 from time import sleep
 import json
@@ -17,7 +17,7 @@ class KubeClient:
         self.core_api_instance = client.CoreV1Api()
         self.job_object = None
 
-    def __create_job_object(self, name: str, image: str, command: list):
+    def __create_job_object(self, name: str, image: str, command=None):
         # Configure Pod template container
         container = client.V1Container(
             name=name,
@@ -37,7 +37,7 @@ class KubeClient:
             spec=client.V1PodSpec(restart_policy="Never", containers=[container]),
         )
         # Create the specification of deployment
-        spec = client.V1JobSpec(template=template, backoff_limit=4)
+        spec = client.V1JobSpec(template=template, backoff_limit=2)
         # Instantiate the job object
         job = client.V1Job(
             api_version="batch/v1",
@@ -48,13 +48,16 @@ class KubeClient:
         self.job_object = job
 
     def create_job(
-        self, name: str, image: str, command: list, namespace: str = "default"
+        self, name: str, image: str, command=None, namespace: str = "default"
     ):
         self.__create_job_object(name, image, command)
-        api_response = self.batch_api_instance.create_namespaced_job(
-            body=self.job_object, namespace=namespace
-        )
-        print(f"Job created. status='{str(api_response.status)}'")
+        try:
+            api_response = self.batch_api_instance.create_namespaced_job(
+                body=self.job_object, namespace=namespace
+            )
+            print(f"Job created. status='{str(api_response.status)}'")
+        except Exception as e:
+            print(e)
 
     def get_job_status(self, name, namespace="default"):
         job_completed = False
@@ -101,13 +104,16 @@ class KubeClient:
             )
             logs = []
             for pod in pods.items:
-                print(pod)
                 pod_name = pod.metadata.name
                 status = pod.status.phase
                 try:
                     # Fetch logs for the Pod
                     pod_logs = self.core_api_instance.read_namespaced_pod_log(
-                        name=pod_name, namespace=namespace
+                        name=pod_name,
+                        namespace=namespace,
+                        previous=False,
+                        follow=False,
+                        limit_bytes=10000000,
                     )
                     if status == "Failed":
                         message = pod.status.container_statuses[
@@ -151,7 +157,7 @@ def main():
         "perl",
         "-Mbignum=bpi",
         "-wle",
-        "print bpi(200)",
+        "print bpi(20)",
     ]  # Example command for printing digits of pi in Perl
     kube = KubeClient()
     kube.create_job(name, image, command)
@@ -172,5 +178,5 @@ def main():
     # delete_job(name, batch_v1)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
