@@ -21,5 +21,3 @@ public class RegisterRequest {
         CLOUD_STORAGE
     }
 }
-
-

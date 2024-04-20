@@ -5,10 +5,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,24 +20,21 @@ public class S4BucketService {
 
 	@Autowired
 	private JdbcTemplate jdbcTemplate;
-	
+
 	@Autowired
 	private RedisPublisher redisPublisher;
-
-//    public YourBusinessService(JedisPublisher jedisPublisher) {
-//        this.jedisPublisher = jedisPublisher;
-//    }
 
 	@Transactional
 	public ResponseEntity<?> createBucket(String bucketName) {
 
 		try {
-			jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS " + bucketName
-					+ "(file_id SERIAL PRIMARY KEY, image BYTEA, status VARCHAR(255) )");
+			jdbcTemplate.execute("CREATE TABLE " + bucketName
+					+ "(file_id SERIAL PRIMARY KEY, image BYTEA, additional_info text, additional_info_type varchar )");
 
 			return ResponseEntity.ok().body("Bucket created successfully.");
 		} catch (Exception e) {
-			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to create bucket.");
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getCause().toString());
 		}
 	}
 
@@ -49,14 +48,17 @@ public class S4BucketService {
 
 			for (byte[] imageData : images) {
 
-				jdbcTemplate.update("INSERT INTO " + bucketName + " (image, status) VALUES (?, ?)", imageData,
-						"ACTIVE");
+				jdbcTemplate.update(
+						"INSERT INTO " + bucketName
+								+ " (image, additional_info, additional_info_type) VALUES (?, ?, ?)",
+						imageData, "EMPTY", "TEXT");
 
 				String fileId = jdbcTemplate.queryForObject("SELECT LASTVAL() AS VARCHAR", String.class);
 				insertedImageIds.add(fileId);
 			}
 			return ResponseEntity.ok(insertedImageIds);
 		} catch (Exception e) {
+			e.printStackTrace();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to upload images.");
 		}
 	}
@@ -65,10 +67,15 @@ public class S4BucketService {
 	public ResponseEntity<?> deleteFromBucket(String bucketName, String imageId) {
 
 		try {
-			jdbcTemplate.update("DELETE FROM " + bucketName + " WHERE file_id = "+ imageId);
-			return ResponseEntity.ok().body("Image deleted successfully.");
-
+			int deletedRowCount = jdbcTemplate.update("DELETE FROM " + bucketName + " WHERE file_id = " + imageId);
+			if (deletedRowCount > 0) {
+				return ResponseEntity.ok().body("Image deleted successfully.");
+			} else {
+				return ResponseEntity.status(HttpStatus.NOT_FOUND)
+						.body("Image with image id: " + imageId + " in bucket: " + bucketName + " does not exist.");
+			}
 		} catch (Exception e) {
+			e.printStackTrace();
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to delete image.");
 		}
 	}
@@ -81,11 +88,14 @@ public class S4BucketService {
 			return ResponseEntity.ok().body("Bucket deleted successfully.");
 
 		} catch (Exception e) {
+			e.printStackTrace();
+
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to delete bucket.");
 		}
 	}
 
-	public String getImageDataAsBase64(String bucketName, Long imageId) {
+	@Transactional(readOnly = true)
+	public ResponseEntity<?> getImageFromBucket(String bucketName, Long imageId) {
 
 		try {
 			byte[] imageData = jdbcTemplate.query("SELECT image FROM " + bucketName + " WHERE file_id = ?",
@@ -97,12 +107,33 @@ public class S4BucketService {
 						}
 					}, imageId);
 
-			return base64ToBytes(imageData);
+			return ResponseEntity.ok(bytesToBase64(imageData));
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			return null;
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+					.body("Failed to fetch particular image from bucket.");
+
 		}
+	}
+
+	@Transactional(readOnly = true)
+	public ResponseEntity<?> getAllDataFromBucket(String bucketName) {
+		try {
+			List<Map<String, Object>> dataList = jdbcTemplate.queryForList("SELECT * FROM " + bucketName);
+			return ResponseEntity.ok(dataList);
+		} catch (BadSqlGrammarException e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("The specified bucket does not exist.");
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Failed to fetch data from bucket.");
+		}
+	}
+
+	public void publishToChannel(String channel, String msg) {
+
+		redisPublisher.publishMessage(channel, msg);
 	}
 
 	private List<byte[]> base64ToBytes(List<String> base64Images) {
@@ -114,14 +145,9 @@ public class S4BucketService {
 		return images;
 	}
 
-	private String base64ToBytes(byte[] ImagesBytes) {
+	private String bytesToBase64(byte[] ImagesBytes) {
 		String base64Image = Base64.getEncoder().encodeToString(ImagesBytes);
 		return base64Image;
 	}
-	
-	 public void publishToChannel(String channel, String msg) {
-	        
-	        redisPublisher.publishMessage(channel, msg);
-	    }
 
 }

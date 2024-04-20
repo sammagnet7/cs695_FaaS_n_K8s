@@ -18,17 +18,10 @@ public class RedisConfiguration {
 	@Value("${spring.redis.port}")
 	private int redisPort;
 
-//	@Bean
-//	public JedisConnectionFactory jedisConnectionFactory() {
-//		JedisConnectionFactory jedisConnectionFactory = new JedisConnectionFactory();
-//		jedisConnectionFactory.setHostName(redisHost);
-//		jedisConnectionFactory.setPort(redisPort);
-//		return jedisConnectionFactory;
-//	}
+
 	@Bean
 	JedisConnectionFactory jedisConnectionFactory() {
 	    RedisStandaloneConfiguration redisStandaloneConfiguration = new RedisStandaloneConfiguration(redisHost, 6379);
-	    //redisStandaloneConfiguration.setPassword(RedisPassword.of("yourRedisPasswordIfAny"));
 	    return new JedisConnectionFactory(redisStandaloneConfiguration);
 	}
 

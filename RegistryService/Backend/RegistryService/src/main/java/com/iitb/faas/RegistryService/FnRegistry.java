@@ -1,7 +1,11 @@
 package com.iitb.faas.RegistryService;
 
+import java.sql.Timestamp;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -39,4 +43,14 @@ public class FnRegistry {
     
     @Column(name = "bucket_id", length = 255)
     private String bucketId;
+    
+    @Column(name = "triggered_time")
+    private Timestamp triggerTime;
+    
+    @Column(name = "finish_time")
+    private Timestamp finishTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20)
+    private Status status;
 }
