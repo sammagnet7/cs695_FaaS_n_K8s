@@ -16,6 +16,7 @@ const savecodedepsReducer = (state = initialState, action) => {
     let id;
     switch (action.type) {
         case actionTypes.SAVE_CODE_DEPS:
+            console.log("REDUCER")
             console.log(action)
             return {
                 ...state,

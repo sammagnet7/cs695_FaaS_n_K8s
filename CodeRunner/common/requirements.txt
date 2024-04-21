@@ -1,0 +1,4 @@
+redis
+psycopg2
+opencv-python
+numpy

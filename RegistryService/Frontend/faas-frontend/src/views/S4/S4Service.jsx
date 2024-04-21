@@ -56,6 +56,7 @@ import {
   fetchData,
 } from "../../views/Status/StatusPage";
 import { IconRefresh } from "@tabler/icons-react";
+import ImagePlaceholder from "../../ui-component/cards/Skeleton/ImagePlaceholder";
 // axios.defaults.timeout = 15000;
 const uploadImg = async (url, data) => {
   try {
@@ -100,6 +101,8 @@ const modalstyle = {
 
 const S4Service = () => {
   const [bucketID, setBucketID] = useState("");
+  const [searchID, setSearchID] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [files, setFiles] = useState([]);
   const [base64Data, setBase64Data] = useState([]);
   const { enqueueSnackbar } = useSnackbar();
@@ -108,9 +111,14 @@ const S4Service = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [createopen, setCreateOpen] = useState(false);
+  const [isImgLoading, setImgIsLoading] = useState(true);
+
+  const handleImageLoad = () => {
+    console.log("Loaded");
+    setImgIsLoading(false);
+  };
   const handleCreateModalOpen = () => setCreateOpen(true);
   const handleCreateModalClose = () => {
-    setBucketID("");
     setCreateOpen(false);
   };
   const [uploadopen, setUploadOpen] = useState(false);
@@ -137,6 +145,7 @@ const S4Service = () => {
   };
   // Search handler
   const doSearch = (bucket_id) => {
+    setSearchID(bucket_id);
     showBucket(bucket_id);
   };
   const addImageHandler = () => {
@@ -158,7 +167,7 @@ const S4Service = () => {
         horizontal: "center",
       },
     });
-    createBucket(API_BASE + PORT2 + CREATE_BUCKET, bucketID)
+    createBucket(API_BASE + PORT2 + CREATE_BUCKET, searchID)
       .then((responseData) => {
         enqueueSnackbar(responseData, {
           variant: "success",
@@ -167,6 +176,8 @@ const S4Service = () => {
             horizontal: "center",
           },
         });
+        setBucketID(searchID);
+        setSearchID("");
       })
       .catch((error) => {
         enqueueSnackbar(error.message, {
@@ -204,11 +215,11 @@ const S4Service = () => {
   };
   // Refresh table data
   const refreshHandle = () => {
+    setIsRefreshing(true);
     showBucket(bucketID);
   };
   // Fetch bucket data
   const showBucket = (id) => {
-    setBucketID(id);
     fetchData(API_BASE + PORT2 + FETCH_BUCKET + id)
       .then((responseData) => {
         setAllImageData(responseData);
@@ -219,8 +230,11 @@ const S4Service = () => {
             horizontal: "center",
           },
         });
+        setBucketID(id);
+        setIsRefreshing(false);
       })
       .catch((error) => {
+        setIsRefreshing(false);
         console.log(error);
         if (error.response.status == 500) {
           enqueueSnackbar(error.response.data, {
@@ -262,39 +276,34 @@ const S4Service = () => {
   // Image upload to bucket
   const handleSubmit = () => {
     // Post base64 encoded data to the server
-    // console.log("Base64 encoded data:");
-    // for (let index = 0; index < base64Data.length; index++) {
-    //   const element = base64Data[index];
-    //   console.log(element);
-    // }
     setIsUploading(true);
-    // uploadImg(API_BASE + PORT2 + UPLOAD, {
-    //   bucketName: bucketID,
-    //   base64Images: base64Data,
-    // })
-    //   .then((responseData) => {
-    //     enqueueSnackbar("Upload Successful", {
-    //       variant: "success",
-    //       anchorOrigin: {
-    //         vertical: "bottom",
-    //         horizontal: "center",
-    //       },
-    //     });
-    //     setIsUploading(false);
-    //     setBase64Data([]);
-    //     setFiles([]);
-    //     handleUploadModalClose();
-    //   })
-    //   .catch((error) => {
-    //     setIsUploading(false);
-    //     enqueueSnackbar(error.message, {
-    //       variant: "error",
-    //       anchorOrigin: {
-    //         vertical: "bottom",
-    //         horizontal: "center",
-    //       },
-    //     });
-    //   });
+    uploadImg(API_BASE + PORT2 + UPLOAD, {
+      bucketName: bucketID,
+      base64Images: base64Data,
+    })
+      .then((responseData) => {
+        enqueueSnackbar("Upload Successful", {
+          variant: "success",
+          anchorOrigin: {
+            vertical: "bottom",
+            horizontal: "center",
+          },
+        });
+        setIsUploading(false);
+        setBase64Data([]);
+        setFiles([]);
+        handleUploadModalClose();
+      })
+      .catch((error) => {
+        setIsUploading(false);
+        enqueueSnackbar(error.message, {
+          variant: "error",
+          anchorOrigin: {
+            vertical: "bottom",
+            horizontal: "center",
+          },
+        });
+      });
   };
   // Cancel upload
   const cancelHandler = () => {
@@ -306,9 +315,13 @@ const S4Service = () => {
   // Download image to local
   const handleDownload = async (imageData, imageName) => {
     try {
-      // Convert base64 image data to Blob
-      const response = await axios.get(imageData, { responseType: "blob" });
-      const blob = new Blob([response.data], { type: "image/jpeg" }); // Adjust type as needed
+      const byteCharacters = atob(imageData);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: "image/jpeg" }); // Adjust type as needed
 
       // Create a temporary link element to trigger the download
       const url = window.URL.createObjectURL(blob);
@@ -355,6 +368,33 @@ const S4Service = () => {
         });
       });
   };
+  const handleAdditionalInfo = (info, type) => {
+    if (type == "TEXT") {
+      return (
+        <>
+          <Typography>{info}</Typography>
+        </>
+      );
+    }
+    if (type == "IMAGE") {
+      return (
+        <>
+          {isImgLoading && <ImagePlaceholder width={170} />}
+          <img
+            src={`data:image/jpeg;base64,${info}`}
+            alt="Additional Info"
+            style={{
+              display: isImgLoading ? "none" : "block",
+              width: "170px",
+              height: "auto",
+            }}
+            loading="lazy"
+            onLoad={handleImageLoad}
+          />
+        </>
+      );
+    }
+  };
   const fileNames = files.map((file) => file.name).join(", ");
 
   return (
@@ -393,9 +433,20 @@ const S4Service = () => {
                 </IconButton>
               </Tooltip>
               <Tooltip title="Refresh" placement="right" color="secondary">
-                <IconButton aria-label="Refresh" onClick={refreshHandle}>
-                  <IconRefresh />
-                </IconButton>
+                {isRefreshing ? (
+                  <CircularProgress
+                    size={20}
+                    sx={{
+                      color: "secondary",
+                      marginTop: "8px",
+                      marginLeft: "4px",
+                    }}
+                  />
+                ) : (
+                  <IconButton aria-label="Refresh" onClick={refreshHandle}>
+                    <IconRefresh />
+                  </IconButton>
+                )}
               </Tooltip>
             </Stack>
           }
@@ -426,14 +477,24 @@ const S4Service = () => {
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>{row.file_id}</TableCell>
                     <TableCell>
+                      {isImgLoading && <ImagePlaceholder width={170} />}
                       <img
                         src={`data:image/jpeg;base64,${row.image}`}
                         alt={row.file_id}
-                        style={{ width: "250px", height: "auto" }}
+                        style={{
+                          width: "170px",
+                          height: "auto",
+                        }}
                         loading="lazy"
+                        onLoad={handleImageLoad}
                       />
                     </TableCell>
-                    <TableCell>{row.additional_info}</TableCell>
+                    <TableCell>
+                      {handleAdditionalInfo(
+                        row.additional_info,
+                        row.additional_info_type
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Grid container spacing={0.5}>
                         <Grid item>
@@ -555,7 +616,7 @@ const S4Service = () => {
                 <Grid item xs={12}>
                   <Box sx={{ mt: 2 }}>
                     <Button
-                      disabled={base64Data.length === 0}
+                      disabled={base64Data.length === 0 || isUploading}
                       disableElevation
                       variant="contained"
                       color="secondary"
@@ -563,12 +624,20 @@ const S4Service = () => {
                       fullWidth
                     >
                       Upload
-                      {!isUploading && (
+                      {isUploading && (
                         <CircularProgress
                           variant="indeterminate"
                           disableShrink
                           size={40}
                           thickness={4}
+                          sx={{
+                            color: "primary",
+                            position: "absolute",
+                            top: "50%",
+                            left: "50%",
+                            marginTop: "-12px",
+                            marginLeft: "-12px",
+                          }}
                         />
                       )}
                     </Button>
@@ -622,12 +691,12 @@ const S4Service = () => {
               fontWeight: 500,
             }}
           >
-            {"Bucket " + bucketID + " not found !!"}
+            {"Bucket " + searchID + " not found !!"}
           </Typography>
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="alert-dialog-description">
-            Do you want to create bucket {bucketID}?
+            Do you want to create bucket {searchID}?
           </DialogContentText>
         </DialogContent>
         <DialogActions>

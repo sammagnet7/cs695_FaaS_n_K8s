@@ -14,16 +14,6 @@ const steps = ["Basic Details", "Code"];
 import axios from "axios";
 import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { useSnackbar } from "notistack";
-// {
-//   "fnName": "testFunction_1",
-//   "runtime": "Java",
-//   "sourceCode": "c29tZSBjb2RlIGJpbmFyeSBmb3IgdGVzdCBhcHBsaWNhdGlvbg==",
-//   "requirements": "c29tZSBjb25maWcgaXMgdGVzdCBtZXNzYWdl",
-//   "entryFn": "myFunctionHandler",
-//   "triggerType":"CLOUD_STORAGE",
-//   "eventType":"UPLOAD_INTO_BUCKET" ,
-//   "bucketName": "my_bucket_1"
-// }
 import { Buffer } from "buffer";
 import { API_BASE, PORT, REGISTER } from "../../api/api";
 import { ADD_FUNCTION } from "../../store/actions";

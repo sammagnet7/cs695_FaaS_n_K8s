@@ -1,4 +1,4 @@
-export const API_BASE = "http://192.168.216.35:"
+export const API_BASE = "http://192.168.0.100:"
 export const PORT = "8001"
 export const PORT2 = "8002"
 export const REGISTER = "/faas/registerFunction"
@@ -14,5 +14,5 @@ export const DELETE_BUCKET = "/s4/deleteBucket/"
 
 
 
-export const LOG_PREFIX = "http://10.157.3.213:5601/app/discover#/?_a=(columns:!(message),filters:!(),index:'5e8dc630-fd98-11ee-b01c-e13c3a690dc4',interval:s,query:(language:kuery,query:'kubernetes.namespace:"
+export const LOG_PREFIX = "http://10.157.3.213:5601/app/discover#/?_a=(columns:!(message,kubernetes.pod.name),filters:!(),index:'5e8dc630-fd98-11ee-b01c-e13c3a690dc4',interval:s,query:(language:kuery,query:'kubernetes.namespace:"
 export const LOG_SUFFIX = "'),sort:!(!('@timestamp',desc),!(log.offset,desc)))&_g=(filters:!(),query:(language:kuery,query:''),refreshInterval:(pause:!f,value:5000),time:(from:now-60m,to:now))"

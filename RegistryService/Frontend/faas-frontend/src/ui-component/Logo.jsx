@@ -10,12 +10,12 @@ import { useTheme } from "@mui/material/styles";
  */
 
 // ==============================|| LOGO SVG ||============================== //
-import logo from "../assets/images/logo_y.svg";
+import logo from "../assets/images/logo.png";
 const Logo = () => {
   const theme = useTheme();
 
   return (
-    <img src={logo} alt="Yaml Yoda" width="150" />
+    <img src={logo} alt="Yaml Yoda" width="130" />
 
     // <svg
     //   width="92"
