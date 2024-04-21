@@ -103,7 +103,7 @@ class Register(Resource):
         built_image.tag(REPOSITORY + image_name, tag=tag)
         print(f"Pushing to image to registry {REPOSITORY + image_name}:{tag}")
         resp = docker_client.images.push(REPOSITORY + image_name, tag=tag)
-        # shutil.rmtree(f"uploads/{job_name}")
+        shutil.rmtree(f"uploads/{job_name}")
         return "Pushed image to remote successfully", 201
 
     def delete(self):
