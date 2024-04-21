@@ -19,16 +19,23 @@ import {
 } from "@mui/material";
 import { useDispatch } from "react-redux";
 import { SAVE_CODE_DEPS } from "../../store/actions";
+import { CODE, REQUIREMENTS } from "../../store/constant";
 const CodeEditor = forwardRef((props, ref) => {
-  const [value, setValue] = useState("print('Hello World!')");
+  const [codeValue, setcodeValue] = useState(CODE);
+  const [dependencyValue, setDependencyValue] = useState(REQUIREMENTS);
   const [files, setFiles] = useState([
-    { name: "app.py", content: value, icon: <CodeIcon /> },
-    { name: "requirements.txt", content: "", icon: <TextSnippetIcon /> },
+    { name: "app.py", content: codeValue, icon: <CodeIcon /> },
+    {
+      name: "requirements.txt",
+      content: dependencyValue,
+      icon: <TextSnippetIcon />,
+    },
   ]);
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const dispatch = useDispatch();
   const handleSubmit = () => {
-    handleFileContentChange(activeFileIndex, value);
+    console.log("submit called");
+    console.log(dependencyValue);
     dispatch({
       type: SAVE_CODE_DEPS,
       ...{ code: files[0].content, deps: files[1].content, runtime: "python" },
@@ -41,27 +48,33 @@ const CodeEditor = forwardRef((props, ref) => {
   });
   const handleFileSelect = (file) => {
     const index = files.findIndex((f) => f.name === file.name);
-    if (index != activeFileIndex) {
-      setActiveFileIndex(index);
-      handleFileContentChange((index + 1) % 2, value);
-      setValue(file.content);
+    setActiveFileIndex(index);
+    console.log("File changed to:");
+    console.log(file);
+  };
+  useEffect(() => {
+    const updatedFiles = [...files];
+    updatedFiles[1].content = dependencyValue;
+    setFiles(updatedFiles);
+    console.log("Updated dependency");
+    console.log("New content:", dependencyValue);
+  }, [dependencyValue]);
+
+  useEffect(() => {
+    const updatedFiles = [...files];
+    updatedFiles[0].content = codeValue;
+    setFiles(updatedFiles);
+    console.log("Updated code");
+    console.log("New content:", codeValue);
+  }, [codeValue]);
+
+  const onChange = (val, viewUpdate) => {
+    if (activeFileIndex === 0) {
+      setcodeValue(val);
+    } else if (activeFileIndex === 1) {
+      setDependencyValue(val);
     }
   };
-  const handleFileContentChange = (index, content) => {
-    const updatedFiles = [...files];
-    updatedFiles[index].content = content;
-    setFiles(updatedFiles);
-    console.log("Handled content change for index ", index);
-    console.log("New content:", content);
-  };
-  const onChange = React.useCallback((val, viewUpdate) => {
-    console.log(val);
-    setValue(val);
-  }, []);
-  useEffect(() => {
-    console.log("Initially:");
-    console.log(files);
-  }, []);
   return (
     <>
       <Grid container>
@@ -111,7 +124,7 @@ const CodeEditor = forwardRef((props, ref) => {
         <Grid item xs={12} md={6}>
           <Paper>
             <CodeMirror
-              value={value}
+              value={activeFileIndex == 1 ? dependencyValue : codeValue}
               height="500px"
               theme={vscodeDark}
               extensions={python()}
