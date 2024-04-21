@@ -29,7 +29,7 @@ public class S4BucketService {
 
 		try {
 			jdbcTemplate.execute("CREATE TABLE " + bucketName
-					+ "(file_id SERIAL PRIMARY KEY, image BYTEA, additional_info text, additional_info_type varchar )");
+					+ "(file_id SERIAL PRIMARY KEY, image BYTEA, additional_info_type varchar, additional_info text )");
 
 			return ResponseEntity.ok().body("Bucket created successfully.");
 		} catch (Exception e) {
