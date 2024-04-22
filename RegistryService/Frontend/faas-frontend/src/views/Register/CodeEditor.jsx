@@ -23,6 +23,18 @@ import { CODE, REQUIREMENTS } from "../../store/constant";
 const CodeEditor = forwardRef((props, ref) => {
   const [codeValue, setcodeValue] = useState(CODE);
   const [dependencyValue, setDependencyValue] = useState(REQUIREMENTS);
+  const [detectedFns, setDetectedFns] = useState([]);
+  const [entrypoint, setEntryPoint] = useState("userDefinedFunction");
+  const regex = /def\s+(\w+)\s*\((\w*)\)\:/g;
+  useEffect(() => {
+    const matches = [...codeValue.matchAll(regex)];
+    const functionNames = matches.map((match) => match[1]);
+    setDetectedFns(functionNames);
+  }, [codeValue]);
+
+  const entryPointChange = (event) => {
+    setEntryPoint(event.target.value);
+  };
   const [files, setFiles] = useState([
     { name: "app.py", content: codeValue, icon: <CodeIcon /> },
     {
@@ -34,11 +46,14 @@ const CodeEditor = forwardRef((props, ref) => {
   const [activeFileIndex, setActiveFileIndex] = useState(0);
   const dispatch = useDispatch();
   const handleSubmit = () => {
-    console.log("submit called");
-    console.log(dependencyValue);
     dispatch({
       type: SAVE_CODE_DEPS,
-      ...{ code: files[0].content, deps: files[1].content, runtime: "python" },
+      ...{
+        code: files[0].content,
+        deps: files[1].content,
+        entryFn: entrypoint,
+        runtime: "python",
+      },
     });
   };
   useImperativeHandle(ref, () => {
@@ -49,23 +64,17 @@ const CodeEditor = forwardRef((props, ref) => {
   const handleFileSelect = (file) => {
     const index = files.findIndex((f) => f.name === file.name);
     setActiveFileIndex(index);
-    console.log("File changed to:");
-    console.log(file);
   };
   useEffect(() => {
     const updatedFiles = [...files];
     updatedFiles[1].content = dependencyValue;
     setFiles(updatedFiles);
-    console.log("Updated dependency");
-    console.log("New content:", dependencyValue);
   }, [dependencyValue]);
 
   useEffect(() => {
     const updatedFiles = [...files];
     updatedFiles[0].content = codeValue;
     setFiles(updatedFiles);
-    console.log("Updated code");
-    console.log("New content:", codeValue);
   }, [codeValue]);
 
   const onChange = (val, viewUpdate) => {
@@ -78,18 +87,34 @@ const CodeEditor = forwardRef((props, ref) => {
   return (
     <>
       <Grid container>
-        <Grid item sx={{ width: "30%", mt: 1.75, mb: 1 }}>
+        <Grid item sx={{ mt: 1.75, mb: 1 }} xs={12} sm={12} md={6}>
           <TextField
             disabled
             id="runtime-select"
             select
             label="Runtime Type"
             defaultValue="Python"
-            fullWidth
+            sx={{ width: "35%" }}
           >
             <MenuItem key={"runtime"} value={"Python"}>
               Python
             </MenuItem>
+          </TextField>
+        </Grid>
+        <Grid item sx={{ mt: 1.75, mb: 1 }} xs={12} sm={12} md={6}>
+          <TextField
+            id="entrypoint-select"
+            select
+            value={entrypoint}
+            onChange={entryPointChange}
+            label="Entrypoint"
+            sx={{ width: "35%" }}
+          >
+            {detectedFns.map((fnName, index) => (
+              <MenuItem key={index} value={fnName}>
+                {fnName}
+              </MenuItem>
+            ))}
           </TextField>
         </Grid>
       </Grid>

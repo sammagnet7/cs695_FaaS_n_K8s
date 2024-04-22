@@ -30,7 +30,7 @@ const registerFunc = async (url, data) => {
       runtime: data.runtime,
       sourceCode: base64Code,
       requirements: base64Deps,
-      entryFn: "main",
+      entryFn: data.entryFn,
       triggerType: "CLOUD_STORAGE",
       eventType: data.eventType,
       bucketName: data.bucketId,
@@ -56,9 +56,6 @@ export default function FunctionRegistry() {
   React.useEffect(() => {
     if (activeStep === 1) {
       setIsUploading(true);
-      console.log("Posting these");
-      console.log(basicDetails);
-      console.log(code);
       registerFunc(API_BASE + PORT + REGISTER, { ...basicDetails, ...code })
         .then((responseData) => {
           console.log(responseData);
