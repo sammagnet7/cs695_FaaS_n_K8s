@@ -125,8 +125,10 @@ public class TriggerUtil implements ApplicationContextAware {
 
 			fnRegistry.setStatus(Status.valueOf(finalStatus));
 			fnRegistry.setFinishTime(finishTimestamp);
-
-			fnRegistry = fnRegistryRepository.save(fnRegistry);
+			
+			if(fnRegistryRepository.findById(fnRegistry.getFnId()) != null){
+				fnRegistryRepository.save(fnRegistry);
+			}
 
 			removeIDQueue(jedisConnectionFactory, fnNm_buckId_queue);
 
