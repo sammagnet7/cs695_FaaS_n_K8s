@@ -1,0 +1,3 @@
+create user cs695;
+create database s4_bucket with owner = cs695;
+

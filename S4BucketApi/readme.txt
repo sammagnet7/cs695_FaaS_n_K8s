@@ -1,1 +1,0 @@
-S4 : Sample Simple Storage Service

@@ -1,0 +1,13 @@
+{
+  "fnName": "testmatrix",
+  "runtime": "python",
+  "sourceCode": "IyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMKIyBBZGQgeW91ciBpbXBvcnRzIGhlcmUKIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMKaW1wb3J0IG51bXB5IGFzIG5wCmltcG9ydCB0aW1lCgojIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjCiMgRW50ZXIgeW91IEJ1Y2tldCBuYW1lIGhlcmUKIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIwpCVUNLRVRfTkFNRSA9ICJ0ZXN0bWF0cml4IgoKIyBEbyBub3QgZWRpdCB0aGlzIGZ1bmN0aW9uIG5hbWUKZGVmIHVzZXJEZWZpbmVkRnVuY3Rpb24oaW1hZ2Vfb2xkKToKICAgIHN0YXJ0X3RpbWUgPSB0aW1lLnRpbWUoKQogICAgbWF0cml4MSA9IG5wLnJhbmRvbS5yYW5kKDIwMDAsIDIwMDApCiAgICBtYXRyaXgyID0gbnAucmFuZG9tLnJhbmQoMjAwMCwgMjAwMCkKICAgIHJlc3VsdCA9IG5wLmRvdChtYXRyaXgxLCBtYXRyaXgyKQogICAgZW5kX3RpbWUgPSB0aW1lLnRpbWUoKQogICAgcHJpbnQoIlRpbWU6IiwgZW5kX3RpbWUgLSBzdGFydF90aW1lKQogICAgcmV0dXJuIGltYWdlX29sZAo=",
+  "requirements": "cmVkaXMKcHN5Y29wZzIKbnVtcHk=",
+  "entryFn": "userDefinedFunction",
+  "triggerType": "CLOUD_STORAGE",
+  "eventType": "UPLOAD_INTO_BUCKET",
+  "bucketName": "testmatrix",
+  "replicaLimit": "5",
+  "cpuMax": "0.5",
+  "memoryMax": "512"
+}

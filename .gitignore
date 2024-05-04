@@ -349,7 +349,7 @@ pip-selfcheck.json
 # Ignore all local history of files
 .history
 .ionide
-test/
+#test/
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,linux,flask,python,react,redis,venv
 
