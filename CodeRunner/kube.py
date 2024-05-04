@@ -27,9 +27,7 @@ def get_current_redis_queue_size(queue_name: str):
 
 class KubeClient:
     def __init__(self) -> None:
-        config.load_kube_config(
-            "/home/arif/Kube/cs695/FAAS/cs695_FaaS_n_K8s/CodeRunner/config.yaml"
-        )
+        config.load_kube_config("config.yaml")
         self.batch_api_instance = client.BatchV1Api()
         self.core_api_instance = client.CoreV1Api()
         self.metric_api_instance = client.CustomObjectsApi()
@@ -566,5 +564,5 @@ def main():
     # print("-" * 30)
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
