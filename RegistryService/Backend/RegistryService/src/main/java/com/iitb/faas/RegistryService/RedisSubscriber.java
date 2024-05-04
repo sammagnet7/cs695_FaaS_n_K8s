@@ -25,7 +25,7 @@ public class RedisSubscriber {
 
 	public void subscribeToChannel(FnRegistry savedFnRegistry) {
 
-		String channel = savedFnRegistry.getBucketId() + "_" + savedFnRegistry.getEventType() + "_" + "channel";
+		String channel = savedFnRegistry.getBucketName() + "_" + savedFnRegistry.getEventType() + "_" + "channel";
 		System.out.println("*** Subscribing to channel: " + channel + " ***");
 
 		/*

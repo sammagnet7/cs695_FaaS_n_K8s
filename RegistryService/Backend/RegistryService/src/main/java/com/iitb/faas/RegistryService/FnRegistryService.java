@@ -36,20 +36,20 @@ public class FnRegistryService {
 
 		FnRegistry fnRegistry = new FnRegistry();
 		setRepoProperties(registerRequest, fnRegistry);
-		
+
 		FnRegistry savedFnRegistry = fnRegistryRepository.save(fnRegistry);
 
 		RegisterRequest_Downline downline_req = new RegisterRequest_Downline();
 		setDownlineProperties(registerRequest, downline_req);
-		String url_register = downlineUrl + "/api/v1/register";		
-		
+		String url_register = downlineUrl + "/api/v1/register";
+
 		ResponseEntity<String> response = downline_post(downline_req, url_register);
-		
+
 		if (response.getStatusCode() != HttpStatus.CREATED) {
 			throw new RuntimeException("Failed to register function into DOWNLINE. Unexpected status code: "
 					+ response.getStatusCode().value());
 		}
-		
+
 		/*
 		 * Subscribe on a channel creating a new thread
 		 */
@@ -60,8 +60,10 @@ public class FnRegistryService {
 	public void deregisterFunction(String fnName) {
 
 		FnRegistry fnRegistry = fnRegistryRepository.findByFnName(fnName);
-
-		String channel_name = fnRegistry.getBucketId() + "_" + fnRegistry.getEventType() + "_" + "channel";
+		
+		if(fnRegistry == null)
+				return ;
+		String channel_name = fnRegistry.getBucketName() + "_" + fnRegistry.getEventType() + "_" + "channel";
 
 		redisSubscriber.unsubscribeFromChannel(channel_name, fnRegistry.getFnId());
 
@@ -71,29 +73,6 @@ public class FnRegistryService {
 
 	public List<FnRegistry> getAllFunctions() {
 		return fnRegistryRepository.findAll();
-	}
-
-	private void setRepoProperties(RegisterRequest registerRequest, FnRegistry fnRegistry) {
-
-		fnRegistry.setFnName(registerRequest.getFnName());
-		fnRegistry.setRuntime(registerRequest.getRuntime());
-		fnRegistry.setSourceCode(registerRequest.getSourceCode());
-		fnRegistry.setRequirements(registerRequest.getRequirements());
-		fnRegistry.setEntryFn(registerRequest.getEntryFn());
-		fnRegistry.setTriggerType(registerRequest.getTriggerType().toString());
-		fnRegistry.setEventType(registerRequest.getEventType().toString());
-		fnRegistry.setBucketId(registerRequest.getBucketName());
-
-		fnRegistry.setStatus(Status.CREATED);
-	}
-
-	private void setDownlineProperties(RegisterRequest registerRequest, RegisterRequest_Downline downline) {
-
-		downline.setFnName(registerRequest.getFnName());
-		downline.setRuntime(registerRequest.getRuntime());
-		downline.setSourceCode(registerRequest.getSourceCode());
-		downline.setRequirements(registerRequest.getRequirements());
-
 	}
 
 	private ResponseEntity<String> downline_post(RegisterRequest_Downline downlineRequest, String url) {
@@ -106,6 +85,36 @@ public class FnRegistryService {
 		ResponseEntity<String> response = restTemplate.postForEntity(url, requestEntity, String.class);
 
 		return response;
+	}
+
+	private void setRepoProperties(RegisterRequest registerRequest, FnRegistry fnRegistry) {
+
+		fnRegistry.setFnName(registerRequest.getFnName());
+		fnRegistry.setRuntime(registerRequest.getRuntime());
+		fnRegistry.setSourceCode(registerRequest.getSourceCode());
+		fnRegistry.setRequirements(registerRequest.getRequirements());
+		fnRegistry.setEntryFn(registerRequest.getEntryFn());
+		fnRegistry.setTriggerType(registerRequest.getTriggerType().toString());
+		fnRegistry.setEventType(registerRequest.getEventType().toString());
+		fnRegistry.setBucketName(registerRequest.getBucketName());
+		fnRegistry.setReplicaLimit(registerRequest.getReplicaLimit());
+		fnRegistry.setMemoryMax(registerRequest.getMemoryMax());
+		fnRegistry.setCpuMax(registerRequest.getCpuMax());
+
+		fnRegistry.setStatus(Status.CREATED);
+	}
+
+	private void setDownlineProperties(RegisterRequest registerRequest, RegisterRequest_Downline downline) {
+
+		downline.setFnName(registerRequest.getFnName());
+		downline.setRuntime(registerRequest.getRuntime());
+		downline.setSourceCode(registerRequest.getSourceCode());
+		downline.setRequirements(registerRequest.getRequirements());
+
+		downline.setReplicaLimit(registerRequest.getReplicaLimit());
+		downline.setMemoryMax(registerRequest.getMemoryMax());
+		downline.setCpuMax(registerRequest.getCpuMax());
+
 	}
 
 }

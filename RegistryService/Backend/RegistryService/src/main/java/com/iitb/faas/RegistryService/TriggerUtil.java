@@ -39,8 +39,8 @@ public class TriggerUtil implements ApplicationContextAware {
 	private static ApplicationContext context;
 	private static String downlineUrl;
 
-	private static final int POLDURATION_MIN = 10;
-	private static final int POLINTERVAL_SEC = 10;
+	private static final int POLDURATION_LIMIT_MIN = 10;
+	private static final int POLINTERVAL_SEC = 5;
 
 	private static AtomicInteger sharedTriggerCount = new AtomicInteger(0);
 	private static ThreadLocal<Integer> threadLocalCount = ThreadLocal.withInitial(() -> 0);
@@ -75,15 +75,20 @@ public class TriggerUtil implements ApplicationContextAware {
 		 * Creates Job Queue with current Function name and Bucket ID. Pushes IDs passed
 		 * by the Publisher into the newly created Queue
 		 */
-		String fnNm_buckId_queue = savedFnRegistry.getFnName() + "_" + savedFnRegistry.getBucketId() + "_" + "queue";
+		String fnNm_buckId_queue = savedFnRegistry.getFnName() + "_" + savedFnRegistry.getBucketName() + "_" + "queue";
 		createIDQueue(jedisConnectionFactory, message, fnNm_buckId_queue);
 
 		/*
 		 * Update Function status and Trigger time into Function registry as PROCESSING
 		 */
-		FnRegistry fnRegistry = fnRegistryRepository.findById(savedFnRegistry.getFnId()).orElse(null);
-		if (fnRegistry == null) {
-			throw new RuntimeException("Function Registry not found for ID " + savedFnRegistry.getFnId());
+		FnRegistry fnRegistry = null;
+		while (true) {
+			fnRegistry = fnRegistryRepository.findById(savedFnRegistry.getFnId()).orElse(null);
+			if (fnRegistry != null) {
+				break;
+			} else {
+				System.out.println("Function Registry not found for ID " + savedFnRegistry.getFnId());
+			}
 		}
 
 		fnRegistry.setTriggerTime(Timestamp.from(Instant.now()));
@@ -125,8 +130,8 @@ public class TriggerUtil implements ApplicationContextAware {
 
 			fnRegistry.setStatus(Status.valueOf(finalStatus));
 			fnRegistry.setFinishTime(finishTimestamp);
-			
-			if(fnRegistryRepository.findById(fnRegistry.getFnId()) != null){
+
+			if (fnRegistryRepository.findById(fnRegistry.getFnId()) != null) {
 				fnRegistryRepository.save(fnRegistry);
 			}
 
@@ -153,7 +158,7 @@ public class TriggerUtil implements ApplicationContextAware {
 
 	private static Map<String, String> pollStatus(RestTemplate restTemplate, String url) {
 
-		LocalDateTime endTime = LocalDateTime.now().plusMinutes(POLDURATION_MIN);
+		LocalDateTime endTime = LocalDateTime.now().plusMinutes(POLDURATION_LIMIT_MIN);
 
 		String status = Status.PROCESSING.name();
 		Map<String, String> resp = new HashMap<String, String>();

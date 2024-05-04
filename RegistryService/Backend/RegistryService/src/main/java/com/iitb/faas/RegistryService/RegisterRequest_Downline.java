@@ -10,4 +10,8 @@ public class RegisterRequest_Downline {
     private String sourceCode;
     private String requirements;
     
+    private String memoryMax;
+    private String cpuMax;
+    private String replicaLimit;
+    
 }

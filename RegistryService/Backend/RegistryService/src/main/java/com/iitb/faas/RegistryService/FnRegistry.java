@@ -41,8 +41,17 @@ public class FnRegistry {
     @Column(name = "event_type", length = 255)
     private String eventType;
     
-    @Column(name = "bucket_id", length = 255)
-    private String bucketId;
+    @Column(name = "bucket_name", length = 255)
+    private String bucketName;
+    
+    @Column(name = "replica_limit", length = 255)
+    private String replicaLimit;
+    
+    @Column(name = "cpu_max", length = 255)
+    private String cpuMax;
+    
+    @Column(name = "memory_max", length = 255)
+    private String memoryMax;   
     
     @Column(name = "triggered_time")
     private Timestamp triggerTime;

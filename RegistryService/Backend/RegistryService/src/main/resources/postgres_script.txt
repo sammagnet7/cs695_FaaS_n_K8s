@@ -12,10 +12,14 @@ CREATE TABLE fn_registry (
     entry_fn varchar(1024),
     trigger_type varchar(255),
     event_type varchar(255),
-    bucket_id varchar(255),
+    bucket_name varchar(255),
+    replica_limit varchar(255),
+    cpu_max varchar(255),
+    memory_max varchar(255),
     triggered_time timestamp,
     finish_time timestamp,
     status varchar(255)
+    
 );
 
 

@@ -14,7 +14,10 @@ public class RegisterRequest {
     private EventType eventType;
     private String bucketName;
     
-    private String bucket_id;
+    private String memoryMax;
+    private String cpuMax;
+    private String replicaLimit;
+    
     
     public enum TriggerType {
         HTTP,
