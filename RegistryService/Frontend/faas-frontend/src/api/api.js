@@ -1,4 +1,4 @@
-export const API_BASE = "http://192.168.0.100:"
+export const API_BASE = "http://localhost:"
 export const PORT = "8001"
 export const PORT2 = "8002"
 export const REGISTER = "/faas/registerFunction"
