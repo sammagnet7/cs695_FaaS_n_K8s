@@ -16,5 +16,5 @@ def userDefinedFunction(image_old):  # This is a Base664 encoded string
     return image_new
 `
 
-export const REQUIREMENTS = `redis==5.0.3
-psycopg2-binary==2.9.1`
+export const REQUIREMENTS = `redis
+psycopg2`

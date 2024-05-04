@@ -10,6 +10,7 @@ import ProfileSection from "./ProfileSection";
 
 // assets
 import { IconMenu2 } from "@tabler/icons-react";
+import NotificationSection from "./NotificationSection";
 
 // ==============================|| MAIN NAVBAR / HEADER ||============================== //
 
@@ -59,6 +60,7 @@ const Header = ({ handleLeftDrawerToggle }) => {
       <Box sx={{ flexGrow: 1 }} />
 
       {/* notification & profile */}
+      <NotificationSection />
       <ProfileSection />
     </>
   );

@@ -11,13 +11,6 @@ import base64
 
 
 def get_DB_connection():
-    print(os.environ.get("DB_NAME"))
-    print(os.environ.get("DB_USER"))
-    print(os.environ.get("DB_PASSWORD"))
-    print(os.environ.get("DB_HOST"))
-    print(os.environ.get("DB_PORT"))
-    print(os.environ.get("QUEUE"))
-    print(BUCKET_NAME)
     try:
         conn = psycopg2.connect(
             dbname=os.environ.get("DB_NAME"),

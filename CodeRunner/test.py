@@ -1,26 +1,23 @@
-from datetime import datetime
-from time import sleep
-import redis
+import requests
+import concurrent.futures
+import time
 
-REDIS_HOST = "10.157.3.213"
-REDIS_PORT = "6379"
-job_name = ""
-bucket_id = ""
-redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-queue_name = f"{job_name}_{bucket_id}_queue"
+json = {"fnName": "testmatrix", "runtime": "python", "bucketId": "testmatrix"}
 
 
-def get_current_redis_queue_size(queue_name: str):
-    try:
-        queue_size = redis_conn.llen(queue_name)
-        return queue_size
-    except Exception as e:
-        print(f"Error getting size of Redis queue {queue_name}: {e}")
-        return None
+def send_request():
+    start_time = time.time()  # Capture start time
+    response = requests.post("http://localhost:8003/api/v1/dispatch", json=json)
+    end_time = time.time()  # Capture end time
+    return response.text, end_time - start_time  # Return response and time taken
 
 
-for i in range(0, 360):
-    print(
-        f"Items in queue {queue_name}: {get_current_redis_queue_size(queue_name)} counter-{i}"
-    )
-    sleep(0.5)
+# Send 5 requests concurrently
+with concurrent.futures.ThreadPoolExecutor() as executor:
+    futures = [executor.submit(send_request) for _ in range(500)]
+
+# Get the results
+for future in concurrent.futures.as_completed(futures):
+    response, time_taken = future.result()
+    print("Response:", response)
+    print("Time taken:", time_taken, "seconds")

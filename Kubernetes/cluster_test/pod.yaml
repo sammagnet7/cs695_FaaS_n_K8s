@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: omega
+spec:
+
+      containers:
+        - name: omega
+          image: soumik13/print:test
+
+      restartPolicy: Never
+  
+

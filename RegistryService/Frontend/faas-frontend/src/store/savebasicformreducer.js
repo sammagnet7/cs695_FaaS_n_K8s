@@ -9,6 +9,9 @@ export const initialState = {
     trigger: 'Cloud Storage',
     eventType: '',
     bucketId: '',
+    instances: '',
+    cpu: '',
+    memory: '',
 };
 
 // ==============================|| CUSTOMIZATION REDUCER ||============================== //

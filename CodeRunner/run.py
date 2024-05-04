@@ -24,9 +24,8 @@ class FlaskApplication(BaseApplication):
 
 if __name__ == "__main__":
     options = {
-        "bind": "localhost:8003",
+        "bind": "0.0.0.0:8003",
         "worker_class": "gevent",
-        "workers": 15,  # Change the number of workers here
         "accesslog": "-",
     }
     FlaskApplication(app, options).run()

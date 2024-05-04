@@ -1,4 +1,4 @@
-images = {"python": "ubuntu:22.04"}
+images = {"python": "pythonfn:base"}
 
 
 def generate_dockerfile(
@@ -12,7 +12,6 @@ def generate_dockerfile(
 WORKDIR /app
 ENV TZ=Asia/Calcutta
 ENV LANG=en_US.UTF-8
-RUN apt-get update && apt-get install ffmpeg libsm6 libxext6 python3 python3-pip -y
 COPY ./ /app/
 """
         if has_dependency:

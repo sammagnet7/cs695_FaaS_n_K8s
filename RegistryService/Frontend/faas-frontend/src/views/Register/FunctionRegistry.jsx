@@ -34,6 +34,9 @@ const registerFunc = async (url, data) => {
       triggerType: "CLOUD_STORAGE",
       eventType: data.eventType,
       bucketName: data.bucketId,
+      replicaLimit: data.instances,
+      cpuMax: data.cpu,
+      memoryMax: data.memory,
     });
 
     // Handle response

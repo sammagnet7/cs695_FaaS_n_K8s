@@ -1,0 +1,15 @@
+kind: Service
+apiVersion: v1
+metadata:
+ name: hellocs695service
+spec:
+ selector:
+   app: hellocs695
+ ports:
+ - name: http
+   port: 8080
+   targetPort: 8000
+   protocol: TCP
+ type: LoadBalancer
+ externalIPs:
+  - "10.157.3.213"
