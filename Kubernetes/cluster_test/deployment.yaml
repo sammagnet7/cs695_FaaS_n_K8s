@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-deployment
+  labels:
+    app: hellocs695
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: hellocs695
+  template:
+    metadata:
+      labels:
+        app: hellocs695
+    spec:
+      containers:
+      - name: hellocs695
+        image: soumik13/yoda:latest
+        ports:
+        - containerPort: 8000

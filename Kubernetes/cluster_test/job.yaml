@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: redistest
+spec:
+  parallelism: 9
+  template:
+    spec:
+      containers:
+        - name: redistest
+          image: alpine
+          command: ["sleep", "3600"]
+      restartPolicy: Never
+  backoffLimit: 2
+  
+

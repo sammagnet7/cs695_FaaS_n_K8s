@@ -1,0 +1,3 @@
+FROM hdgigante/python-opencv:4.9.0-alpine
+RUN apk add --no-cache postgresql-dev gcc python3-dev musl-dev
+RUN pip install psycopg2-binary redis

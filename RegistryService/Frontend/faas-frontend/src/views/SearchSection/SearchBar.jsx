@@ -79,7 +79,9 @@ const HeaderAvatarStyle = styled(Avatar, { shouldForwardProp })(
 const SearchBar = ({ doSearch }) => {
   const theme = useTheme();
   const [value, setValue] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const handleSearch = () => {
+    setIsLoading(true);
     doSearch(value);
   };
   const handleKeyDown = (event) => {
@@ -112,7 +114,18 @@ const SearchBar = ({ doSearch }) => {
                 type="submit"
               >
                 <HeaderAvatarStyle variant="rounded">
-                  <KeyboardDoubleArrowRightIcon stroke={1.5} size="1.3rem" />
+                  {isLoading ? (
+                    <CircularProgress
+                      size={20}
+                      sx={{
+                        color: "secondary",
+                        marginTop: "8px",
+                        marginLeft: "4px",
+                      }}
+                    />
+                  ) : (
+                    <KeyboardDoubleArrowRightIcon stroke={1.5} size="1.3rem" />
+                  )}
                 </HeaderAvatarStyle>
               </ButtonBase>
             </InputAdornment>

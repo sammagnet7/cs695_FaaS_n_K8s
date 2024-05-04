@@ -1,0 +1,13 @@
+kind: Service
+apiVersion: v1
+metadata:
+ name: nodeservice
+spec:
+ type: NodePort
+ selector:
+   app: hellocs695
+ ports:
+ - port: 8080
+   targetPort: 8000
+   nodePort: 30007
+   # change this port to a value between 30000-32767

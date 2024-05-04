@@ -4,11 +4,16 @@ import werkzeug.datastructures
 from dockerfile import generate_dockerfile
 from kube import KubeClient
 import werkzeug
-import redis
+
 import docker
 import os
 import base64
 import shutil
+
+# TODO Abstract away DB stuff more
+# TODO Publish a package to PyPI for S4Service and allow a simple api
+# TODO Allow for simple functions to run (things like looping for each image shouldnt be implicit)
+# TODO Ideally one trigger is one invocation of function
 
 app = Flask(__name__)
 # initialize the app with the extension
@@ -20,9 +25,11 @@ post_args = reqparse.RequestParser()
 post_args.add_argument("fnName", type=str, help="Provide job id", required=True)
 post_args.add_argument("runtime", type=str, help="Provide runtime type", required=True)
 post_args.add_argument("sourceCode", type=str, help="Provide runnable", required=True)
-
 post_args.add_argument("command", type=str)
 post_args.add_argument("requirements", type=str)
+post_args.add_argument("replicaLimit", type=int)
+post_args.add_argument("cpuMax", type=float)
+post_args.add_argument("memoryMax", type=int)
 # ---------------------------------------------------- Function dispatch args ----------------------------------------
 post_dispatch = reqparse.RequestParser()
 post_dispatch.add_argument(
@@ -32,31 +39,16 @@ post_dispatch.add_argument(
     "runtime", type=str, help="Provide runtime type", required=True
 )
 post_dispatch.add_argument(
-    "bucketId", type=str, help="Provide bucket id", required=True
+    "bucketName", type=str, help="Provide bucket id", required=True
 )
 # ----------------------------------------------------- Configs ----------------------------------------------------
-UNAME = "soumik13"
-REPOSITORY = "soumik13/"
-REDIS_HOST = "10.157.3.213"
-REDIS_PORT = "6379"
-PAT = "dckr_pat_sR9jQhMqemR1JDxt13SvnCTZndU"
-docker_client.login(UNAME, PAT)  # docket
+REPOSITORY = "10.157.3.45:5000/"
+
 kube = KubeClient()  # kubernetes
-redis_conn = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 
 def decodeB64(encodedstr):
     return base64.b64decode(encodedstr).decode()
-
-
-def get_current_redis_queue_size(queue_name: str):
-    try:
-        # Get the size of the queue
-        queue_size = redis_conn.llen(queue_name)
-        return queue_size
-    except Exception as e:
-        print(f"Error getting size of Redis queue {queue_name}: {e}")
-        return None
 
 
 class Register(Resource):
@@ -66,6 +58,9 @@ class Register(Resource):
         code = args["sourceCode"]
         job_name = args["fnName"]
         runtime_type = args["runtime"]
+        instances = args["replicaLimit"]
+        cpu = args["cpuMax"]
+        memory = args["memoryMax"]
         # optional arguments
         deps = args["requirements"]
         cmd = args["command"]
@@ -103,7 +98,9 @@ class Register(Resource):
         built_image.tag(REPOSITORY + image_name, tag=tag)
         print(f"Pushing to image to registry {REPOSITORY + image_name}:{tag}")
         resp = docker_client.images.push(REPOSITORY + image_name, tag=tag)
+        # print(resp)
         shutil.rmtree(f"uploads/{job_name}")
+        kube.create_namespace_safe(job_name, cpu, memory, instances)
         return "Pushed image to remote successfully", 201
 
     def delete(self):
@@ -114,23 +111,17 @@ class Dispatch(Resource):
 
     def post(self):
         try:
+            print("In dispatch")
             args = post_dispatch.parse_args()
             job_name = args["fnName"]
             runtime_type = args["runtime"]
-            bucket_id = args["bucketId"]
-
-            print(job_name)
-            print(runtime_type)
-            print(bucket_id)
-
+            bucket_id = args["bucketName"]
             image = REPOSITORY + f"{job_name}-{runtime_type}" + ":function"
             queue_name = f"{job_name}_{bucket_id}_queue"
 
             status = kube.create_job_or_scale_existing(
                 job_name, image, namespace=job_name, queue_name=queue_name
             )
-
-            print(get_current_redis_queue_size(queue_name))
             if status == 0:
                 return "Created Job", 201
             elif status == 1:
@@ -172,12 +163,26 @@ class Status(Resource):
         try:
             status = kube.get_job_status(fnName, fnName)
             status = get_summary_status(status)
+            print("Status:", status)
             return status, 200
         except Exception as e:
             # print(e)
-            return "Function couldn't be found", 200
+            return {"status": "Function couldn't be found"}, 200
 
 
+from time import sleep
+import threading
+from threading import current_thread
+
+
+class Test(Resource):
+    def get(self):
+        threadName = current_thread().name
+        sleep(3)
+        return f"Hello from thread : {threadName}", 200
+
+
+api.add_resource(Test, "/api/v1/test")
 api.add_resource(Register, "/api/v1/register")
 api.add_resource(Dispatch, "/api/v1/dispatch")
 api.add_resource(Status, "/api/v1/status/<string:fnName>")
