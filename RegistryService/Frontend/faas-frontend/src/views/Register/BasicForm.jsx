@@ -29,9 +29,9 @@ const BasicForm = ({ innerRef }) => {
           trigger: "Cloud Storage",
           eventType: "",
           bucketId: "",
-          instances: "5",
+          instances: "4",
           cpu: "0.5",
-          memory: "512",
+          memory: "1024",
         }}
         onSubmit={(values, { setErrors, setStatus, setSubmitting }) => {
           console.log(values);

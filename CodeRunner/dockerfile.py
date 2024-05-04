@@ -1,4 +1,4 @@
-images = {"python": "pythonfn:base"}
+images = {"python": "10.157.3.45:5000/pythonfn:base"}
 
 
 def generate_dockerfile(

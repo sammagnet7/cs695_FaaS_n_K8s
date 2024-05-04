@@ -12,7 +12,7 @@ BUCKET_NAME = ""
 
 # Do not edit this function name
 def userDefinedFunction(image_old):  # This is a Base664 encoded string
-    image_new = ""
+    image_new = "BLANK"
     return image_new
 `
 
