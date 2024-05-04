@@ -5,7 +5,7 @@
 *.class
 
 # Log file
-*.log
+#*.log
 
 # BlueJ files
 *.ctxt
@@ -91,7 +91,7 @@ cover/
 *.pot
 
 # Django stuff:
-*.log
+#*.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
@@ -301,7 +301,7 @@ pyrightconfig.json
 
 ### react ###
 .DS_*
-logs
+#logs
 **/*.backup.*
 **/*.back.*
 
