@@ -83,6 +83,8 @@ const SearchBar = ({ doSearch }) => {
   const handleSearch = () => {
     setIsLoading(true);
     doSearch(value);
+    console.log("Search done");
+    setIsLoading(false);
   };
   const handleKeyDown = (event) => {
     if (event.key === "Enter" && value) doSearch(value);
