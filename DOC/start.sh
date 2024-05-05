@@ -22,3 +22,14 @@ Open URL: http://localhost:5173/
 
 3.
 Start the Spring boot APIs: faas and s4bucket
+
+4. Running middleware:
+# First cd to base directory i.e. cs695_FaaS_n_K8s then,
+    cd Middleware/RegistryService
+    ./mvnw clean package
+    java -jar target/RegistryService-0.0.1-SNAPSHOT.jar
+# Second cd to base directory i.e. cs695_FaaS_n_K8s then,
+    cd Middleware/S4BucketService
+    ./mvnw clean package
+    java -jar target/S4BucketService-0.0.1-SNAPSHOT.jar
+
