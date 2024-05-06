@@ -56,6 +56,8 @@ The Docker daemon always runs as the root user. If you don't want to preface the
    ```
 ## Cluster Creation
 Cluster can be made with minikube(local cluster) or kubeadm(distributed cluster)
+### Config
+Whichever method you choose, ensure you keep the cluster ```config.yaml``` in ```CodeRunner/config```
 ### Via Minikube
 #### Install minikube
 Installs minikube from deb package on a linux x86-64 machine. For other architectures see [here](https://minikube.sigs.k8s.io/docs/start/)

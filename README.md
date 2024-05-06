@@ -1,1 +1,1 @@
-## Check ./DOC/readme
+## Check DOC/readme
