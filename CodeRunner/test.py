@@ -1,23 +1,18 @@
-import requests
-import concurrent.futures
-import time
-
-json = {"fnName": "testmatrix", "runtime": "python", "bucketId": "testmatrix"}
+import os
 
 
-def send_request():
-    start_time = time.time()  # Capture start time
-    response = requests.post("http://localhost:8003/api/v1/dispatch", json=json)
-    end_time = time.time()  # Capture end time
-    return response.text, end_time - start_time  # Return response and time taken
+def create_directory(directory_path):
+    # Get the directory of the current script
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+
+    # Create the full path for the new directory
+    new_directory_path = os.path.join(script_directory, directory_path)
+
+    # Check if the directory already exists
+    if not os.path.exists(new_directory_path):
+        os.makedirs(new_directory_path)
 
 
-# Send 5 requests concurrently
-with concurrent.futures.ThreadPoolExecutor() as executor:
-    futures = [executor.submit(send_request) for _ in range(500)]
-
-# Get the results
-for future in concurrent.futures.as_completed(futures):
-    response, time_taken = future.result()
-    print("Response:", response)
-    print("Time taken:", time_taken, "seconds")
+# Example usage
+directory_name = "my_directory"
+create_directory(directory_name)

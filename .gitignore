@@ -4,3 +4,6 @@
 .project
 .settings
 env/**
+.venv
+config.yaml
+__pycache__

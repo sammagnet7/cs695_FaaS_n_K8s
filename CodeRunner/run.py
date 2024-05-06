@@ -5,7 +5,7 @@ monkey.patch_all()
 
 from gunicorn.app.base import BaseApplication
 from gunicorn.workers.ggevent import GeventWorker
-from api import app  # Import your Flask application
+from server.api import app
 
 
 class FlaskApplication(BaseApplication):
@@ -27,5 +27,6 @@ if __name__ == "__main__":
         "bind": "0.0.0.0:8003",
         "worker_class": "gevent",
         "accesslog": "-",
+        "errorlog": "-",
     }
     FlaskApplication(app, options).run()

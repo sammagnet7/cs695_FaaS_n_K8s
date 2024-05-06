@@ -2,11 +2,10 @@
 Creates, scales, gets status, and deletes a job object.
 """
 
-from kubernetes import client, config, watch
+from kubernetes import client, config
 import threading
 from threading import current_thread
 import redis
-import time
 import math
 
 job_locks = {}
@@ -22,12 +21,12 @@ def get_current_redis_queue_size(queue_name: str):
         return queue_size
     except Exception as e:
         print(f"Error getting size of Redis queue {queue_name}: {e}")
-        return None
+        return 1
 
 
 class KubeClient:
     def __init__(self) -> None:
-        config.load_kube_config("config.yaml")
+        config.load_kube_config("config/config.yaml")
         self.batch_api_instance = client.BatchV1Api()
         self.core_api_instance = client.CoreV1Api()
         self.metric_api_instance = client.CustomObjectsApi()
@@ -42,8 +41,6 @@ class KubeClient:
     def scaler(self, jobname, queuename):
         workitems = get_current_redis_queue_size(queue_name=queuename)
         podcount = self._get_active_pod_count(jobname)
-        print("Current pods: ", podcount)
-        print("Current workitems: ", workitems)
         if workitems >= podcount * 20 or self.is_high_resource_usage(jobname):
             desired = workitems // 20
             amount = desired - podcount if podcount < desired else 0
@@ -69,16 +66,12 @@ class KubeClient:
                 requests = container.resources.requests
                 cpu_request = requests.get("cpu", None)
                 memory_request = requests.get("memory", None)
-                print("cpu req", cpu_request)
-                print("mem req", memory_request)
                 container_requests = {
                     "cpu": int(cpu_request.rstrip("m")) if cpu_request else None,
                     "memory": (
                         int(memory_request.rstrip("Mi")) if memory_request else None
                     ),
                 }
-                print("container requests:", container_requests)
-
             # Get pod metrics
             cpu_usage, memory_usage = self.get_pod_resource_usage(
                 pod_name, pod_namespace
@@ -111,7 +104,6 @@ class KubeClient:
                     for container in containers
                 ]
             )
-            print(f"POD: {pod_name} cpu: {cpu_usage} mem:{memory_usage}")
             return cpu_usage, memory_usage
         except client.rest.ApiException as e:
             if e.status == 404:
@@ -120,31 +112,6 @@ class KubeClient:
                 print(f"Error: {e}")
 
         return 0, 0
-
-    def read_metric(self, name, namespace):
-        try:
-            api = client.CustomObjectsApi()
-            # k8s_nodes = api.list_cluster_custom_object(
-            #     "metrics.k8s.io", "v1beta1", "pods"
-            # )
-            api.get_namespaced_custom_object(
-                "metrics.k8s.io",
-                "v1beta1",
-            )
-            # for stats in k8s_nodes["items"]:
-            #     print(
-            #         "Node Name: %s\tCPU: %s\tMemory: %s"
-            #         % (
-            #             stats["metadata"]["name"],
-            #             stats["usage"]["cpu"],
-            #             stats["usage"]["memory"],
-            #         )
-            #     )
-        except Exception as e:
-            print(
-                "Exception when calling CoreV1Api->read_namespaced_resource_quota_status: %s\n"
-                % e
-            )
 
     def set_quotas_limits(self, ucpu, umemory, uinstances):
         resourceQuota = {"cpu": "0", "memory": "0", "instances": "0"}
@@ -185,6 +152,16 @@ class KubeClient:
         resourceQuota["instances"] = pinstance
         return resourceQuota, limitRange
 
+    def namespace_exists(self, name):
+        try:
+            self.core_api_instance.read_namespace(name)
+            return True
+        except Exception as e:
+            if e.status == 404:
+                return False
+            else:
+                return False
+
     def create_namespace_safe(self, name, cpu, memory, instance):
         while True:
             try:
@@ -199,7 +176,6 @@ class KubeClient:
                 break
             except client.ApiException as e:
                 if e.status == 409:  # Namespace already exists
-                    print(f"Namespace {name} exists, Deleting...")
                     try:
                         self.core_api_instance.delete_namespace(name=name)
                     except client.ApiException as delete_exception:
@@ -212,10 +188,7 @@ class KubeClient:
                 else:
                     print(f"Failed to create namespace {name}: {e}")
                     break
-        print("Applying quotas")
         resourceQuota, limitRange = self.set_quotas_limits(cpu, memory, instance)
-        print("Resource quota:", resourceQuota)
-        print("Limit range:", limitRange)
         self.create_resource_quota(
             name,
             cpu=resourceQuota["cpu"],
@@ -252,7 +225,6 @@ class KubeClient:
             print("Failed to create resource quota ", e)
 
     def create_limit_range(self, namespace, cpu, memory, maxcpu, maxmem):
-        print("limit range got mem:", memory)
         try:
             limit_range = client.V1LimitRange(
                 metadata=client.V1ObjectMeta(name="cpu-mem-lr"),
@@ -369,8 +341,8 @@ class KubeClient:
                 print(f"Job created in namespace'{namespace}'")
                 break
             except Exception as e:
-                print("KUBE Job:", e)
-                print("Trying again")
+                print(e)
+                print("Error creating Job")
 
     def create_job_or_scale_existing(
         self,
@@ -400,7 +372,7 @@ class KubeClient:
                 return 1
             case 2:
                 # print(f"Found active job in namespace {namespace}.trying to scale it")
-                print(f"Found active job in namespace {namespace}.Ignoring")
+                print(f"Found active job in namespace {namespace}.Trying to scale")
                 self.scaler(jobname=name, queuename=queue_name)
                 lock.release()
                 return 2
@@ -426,7 +398,7 @@ class KubeClient:
                 if e.reason == "Conflict":
                     print(f"Error scaling the Job")
                 else:
-                    print("SCALE Exception:", e)
+                    print("Unknown exception in scaler", e)
 
     def get_job_status(self, name, namespace="default"):
         try:
@@ -445,124 +417,21 @@ class KubeClient:
             for pod in pods:
                 if pod.status.phase in ["Running", "Pending"]:
                     active_count += 1
-            print(f"Namespace {namespace} active pods: {active_count}")
             return active_count
         except Exception as e:
             print("Error getting pod count")
             return -1
 
-    def wait_for_pods_running(
-        self, job_name, namespace="default", timeout=300, polling_interval=2
-    ):
-        start_time = time.time()
-        while True:
-            # Check if timeout has elapsed
-            if time.time() - start_time > timeout:
-                raise TimeoutError(
-                    f"Timeout waiting for pods of Job to be in 'Running' state"
-                )
-            pods = self.core_api_instance.list_namespaced_pod(
-                namespace=namespace, label_selector=f"job-name={job_name}"
-            )
-            # Check if all Pods are in 'Running' state
-            all_good = all(pod.status.phase != "Pending" for pod in pods.items)
-            if all_good:
-                return
-
-            # Sleep for polling interval before checking again
-            time.sleep(polling_interval)
-
-    def get_job_logs(self, job_name, namespace="default"):
-        # Retrieve the list of Pods associated with the Job
-
-        try:
-            self.wait_for_pods_running(job_name=job_name)
-            # Iterate over the Pods and fetch their logs
-            pods = self.core_api_instance.list_namespaced_pod(
-                namespace=namespace, label_selector=f"job-name={job_name}"
-            )
-            logs = []
-            for pod in pods.items:
-                pod_name = pod.metadata.name
-                status = pod.status.phase
-                try:
-                    # Fetch logs for the Pod
-                    pod_logs = self.core_api_instance.read_namespaced_pod_log(
-                        name=pod_name,
-                        namespace=namespace,
-                        previous=False,
-                        follow=False,
-                        limit_bytes=10000000,
-                    )
-                    if status == "Failed":
-                        message = pod.status.container_statuses[
-                            0
-                        ].state.terminated.message
-                        reason = pod.status.container_statuses[
-                            0
-                        ].state.terminated.reason
-                        logs.append(
-                            f"Logs for Pod {pod_name}, status: {status}:\n{message}\nreason:{reason}"
-                        )
-                    else:
-                        logs.append(
-                            f"Logs for Pod {pod_name}, status: {status}:\n{pod_logs}"
-                        )
-                except Exception as e:
-                    logs.append(f"Error fetching logs for Pod {pod_name}: {str(e)}")
-
-            return logs
-        except TimeoutError as e:
-            return e
-
     def delete_job(self, job_name, namespace="default"):
-        api_response = self.batch_api_instance.delete_namespaced_job(
-            name=job_name,
-            namespace=namespace,
-            body=client.V1DeleteOptions(
-                propagation_policy="Foreground", grace_period_seconds=5
-            ),
-        )
-        print(f"Job deleted. status='{str(api_response.status)}'")
+        try:
 
-
-def main():
-    name = "demo"
-    image = "alpine"
-    command = ["sleep", "120"]
-
-    kube = KubeClient()
-    kube._get_active_pod_count("kube-system")
-    test_cases = [
-        (None, None, None),
-        (0.5, 512, None),
-        (None, 1024, 2),
-        (0.7, None, 5),
-        # (400, 2048, 1),
-        # (100, 256, 4),
-    ]
-
-    max_cpu = 8
-    max_mem = 4096
-    max_instances = 16
-    min_cpu = 0.5
-    min_mem = 256
-    min_instances = 1
-    # for cpu in [i / 2 for i in range(0, 25)]:
-    #     for mem in range(128, 1024 * 5, 128):
-    #         for instances in range(0, 18, 1):
-    #             test_cases.append((cpu, mem, instances))
-
-    # for cpu, memory, instances in test_cases:
-    #     print(f"Input: cpu={cpu}, memory={memory}, instances={instances}")
-    #     validated_cpu, validated_memory, validated_instances = kube.validate_resources(
-    #         cpu, memory, instances
-    #     )
-    #     print(
-    #         f"Output: cpu={validated_cpu}, memory={validated_memory}, instances={validated_instances}"
-    #     )
-    # print("-" * 30)
-
-
-if __name__ == "__main__":
-    main()
+            api_response = self.batch_api_instance.delete_namespaced_job(
+                name=job_name,
+                namespace=namespace,
+                body=client.V1DeleteOptions(
+                    propagation_policy="Foreground", grace_period_seconds=5
+                ),
+            )
+            print(f"Job deleted")
+        except Exception as e:
+            print("Error deleting job")

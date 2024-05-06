@@ -54,7 +54,22 @@ The Docker daemon always runs as the root user. If you don't want to preface the
    ```bash
    $ docker run hello-world
    ```
-### Container Runtime
+## Cluster Creation
+Cluster can be made with minikube(local cluster) or kubeadm(distributed cluster)
+### Via Minikube
+#### Install minikube
+Installs minikube from deb package on a linux x86-64 machine. For other architectures see [here](https://minikube.sigs.k8s.io/docs/start/)
+```bash
+curl -LO https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+sudo dpkg -i minikube_latest_amd64.deb
+```
+#### Start cluster
+```bash
+minikube start --insecure-registry "10.157.3.45:5000"
+```
+Insecure registry is the address of the private docker registry.
+### Via Kubeadm
+#### Container Runtime
 1. Install prerequisites
    ```bash
    $ sudo apt-get install git-all
@@ -87,7 +102,7 @@ The Docker daemon always runs as the root user. If you don't want to preface the
    $ sudo systemctl enable --now cri-docker.socket
    ```
 
-### Install tools for cluster setup
+#### Install tools for cluster setup
 1. Install prerequisites
    ```bash
    $ sudo apt-get install -y apt-transport-https ca-certificates curl gpg
@@ -109,12 +124,12 @@ The Docker daemon always runs as the root user. If you don't want to preface the
     $ sudo systemctl enable --now kubelet
    ```
 
-## Cluster Setup
+#### Cluster Setup
 The cluster will have one control plane node and multiple worker nodes.
 
 
 Execute following steps in the node you want as control plane
-### Control plane
+#### Control plane
 1. Turn off swap
    ```bash
    $ sudo swapoff -a
@@ -150,7 +165,7 @@ Execute following steps in the node you want as control plane
    The command in the above output is required to join worker nodes in cluster. lets call it ```JOIN_COMMAND```
 
 For every node that you want as worker run the following
-### Worker
+#### Worker
 1. Turnoff swap
    ```bash
    $ sudo swapoff -a
@@ -163,6 +178,8 @@ For every node that you want as worker run the following
    ```bash
    $ JOIN_COMMAND --cri-socket=unix:///var/run/cri-dockerd.sock
    ```
+#### Image registry
+If using private registry add insecure registries to docker configuration on all machines that will do pull/push to that registry.
 
 
 ## ELK setup:

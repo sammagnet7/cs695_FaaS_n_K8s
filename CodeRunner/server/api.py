@@ -1,9 +1,7 @@
-from flask import Flask, request
-from flask_restful import Api, Resource, reqparse, abort, inputs
-import werkzeug.datastructures
-from dockerfile import generate_dockerfile
-from kube import KubeClient
-import werkzeug
+from flask import Flask
+from flask_restful import Api, Resource, reqparse
+from server.dockerfile import generate_dockerfile
+from server.kube import KubeClient
 
 import docker
 import os
@@ -43,93 +41,120 @@ post_dispatch.add_argument(
 )
 # ----------------------------------------------------- Configs ----------------------------------------------------
 REPOSITORY = "10.157.3.45:5000/"
-
+UPLOADS_BASE = "uploads"
+USERCODE = "app.py"
+USERDEPS = "requirements.txt"
+IMAGE_TAG = "function"
 kube = KubeClient()  # kubernetes
+script_directory = os.path.dirname(os.path.abspath(__file__))
 
 
+def buildPath(path: str = ""):
+    return os.path.abspath(os.path.join(script_directory, path))
+
+
+# utils
 def decodeB64(encodedstr):
     return base64.b64decode(encodedstr).decode()
+
+
+def writeToFile(file_path, content: str = ""):
+    with open(file_path, "w") as file:
+        file.write(content)
+
+
+def create_directory(directory_path):
+    os.makedirs(directory_path, exist_ok=True)
+
+
+def delete_directory(directory_path):
+    if os.path.exists(directory_path):
+        shutil.rmtree(directory_path)
 
 
 class Register(Resource):
     def post(self):
         args = post_args.parse_args()
         # Required arguments
-        code = args["sourceCode"]
-        job_name = args["fnName"]
-        runtime_type = args["runtime"]
-        instances = args["replicaLimit"]
-        cpu = args["cpuMax"]
-        memory = args["memoryMax"]
+        code, job_name, runtime_type, instances, cpu, memory = (
+            args["sourceCode"],
+            args["fnName"],
+            args["runtime"],
+            args["replicaLimit"],
+            args["cpuMax"],
+            args["memoryMax"],
+        )
         # optional arguments
-        deps = args["requirements"]
-        cmd = args["command"]
-        tag = "function"
+        deps, cmd = args["requirements"], args["command"]
         image_name = f"{job_name}-{runtime_type}"
-        # Create separate directory
-        os.makedirs(os.path.join("./uploads/", f"{job_name}"))
-        # Copy scaffolding code
-        shutil.copy("./uploads/common/S4Service.py", f"./uploads/{job_name}/")
-        # Save the user code to a file
-        code = decodeB64(code)
-        file_name = "app.py"
-        file_path = f"uploads/{job_name}/{file_name}"  # Example file path
-        with open(file_path, "w") as file:
-            file.write(code)
-        if deps:
-            deps = decodeB64(deps)
-            file_name = "requirements.txt"
-            file_path = f"uploads/{job_name}/{file_name}"
-            with open(file_path, "w") as file:
-                file.write(deps)
+        try:
+            # Create separate directory
+            create_directory(buildPath(UPLOADS_BASE + f"/{job_name}"))
+            # Copy scaffolding code
+            shutil.copy(
+                buildPath("../common/S4Service.py"),
+                buildPath(f"{UPLOADS_BASE}/{job_name}/"),
+            )
+            # Save the user code to a file
+            writeToFile(
+                file_path=buildPath(f"{UPLOADS_BASE}/{job_name}/{USERCODE}"),
+                content=decodeB64(code),
+            )
+            # Save dependencies if any
+            if deps:
+                writeToFile(
+                    file_path=buildPath(f"{UPLOADS_BASE}/{job_name}/{USERDEPS}"),
+                    content=decodeB64(deps),
+                )
+            generate_dockerfile(
+                runtime_type,
+                buildPath(f"{UPLOADS_BASE}/{job_name}"),
+                cmd.split() if cmd else None,
+                True if deps else False,
+            )
 
-        generate_dockerfile(
-            runtime_type,
-            f"uploads/{job_name}",
-            cmd.split() if cmd else None,
-            True if deps else False,
-        )
+            # # # Build Docker image
+            built_image, json_logs = docker_client.images.build(
+                path=buildPath(f"{UPLOADS_BASE}/{job_name}/"),
+                tag=f"{image_name}:{IMAGE_TAG}",
+            )
+            built_image.tag(REPOSITORY + image_name, tag=IMAGE_TAG)
+            print(f"Pushing to image to registry {REPOSITORY + image_name}:{IMAGE_TAG}")
+            resp = docker_client.images.push(REPOSITORY + image_name, tag=IMAGE_TAG)
 
-        # # # Build Docker image
-        built_image, json_logs = docker_client.images.build(
-            path=f"uploads/{job_name}/",
-            tag=f"{image_name}:{tag}",
-        )
-        built_image.tag(REPOSITORY + image_name, tag=tag)
-        print(f"Pushing to image to registry {REPOSITORY + image_name}:{tag}")
-        resp = docker_client.images.push(REPOSITORY + image_name, tag=tag)
-        # print(resp)
-        shutil.rmtree(f"uploads/{job_name}")
-        kube.create_namespace_safe(job_name, cpu, memory, instances)
-        return "Pushed image to remote successfully", 201
+            kube.create_namespace_safe(job_name, cpu, memory, instances)
+            return "Pushed image to remote successfully", 201
 
-    def delete(self):
-        return "", 204
+        except Exception as e:
+            print(e)
+            return "", 500
+        finally:
+            delete_directory(buildPath(f"{UPLOADS_BASE}/{job_name}/"))
 
 
 class Dispatch(Resource):
 
     def post(self):
         try:
-            print("In dispatch")
             args = post_dispatch.parse_args()
             job_name = args["fnName"]
             runtime_type = args["runtime"]
             bucket_id = args["bucketName"]
-            image = REPOSITORY + f"{job_name}-{runtime_type}" + ":function"
+            image = REPOSITORY + f"{job_name}-{runtime_type}:" + f"{IMAGE_TAG}"
             queue_name = f"{job_name}_{bucket_id}_queue"
-
-            status = kube.create_job_or_scale_existing(
-                job_name, image, namespace=job_name, queue_name=queue_name
-            )
-            if status == 0:
-                return "Created Job", 201
-            elif status == 1:
-                return "Created Job removing existing inactive Job", 201
+            if kube.namespace_exists(job_name):
+                status = kube.create_job_or_scale_existing(
+                    job_name, image, namespace=job_name, queue_name=queue_name
+                )
+                if status == 0:
+                    return "Created Job", 201
+                elif status == 1:
+                    return "Created Job removing existing inactive Job", 201
+                else:
+                    return "Scaled existing job", 201
             else:
-                return "Scaled existing job", 201
+                return "Function not registered", 404
         except Exception as e:
-            print(e)
             return "Something Went Wrong", 400
 
 
@@ -163,7 +188,6 @@ class Status(Resource):
         try:
             status = kube.get_job_status(fnName, fnName)
             status = get_summary_status(status)
-            print("Status:", status)
             return status, 200
         except Exception as e:
             # print(e)
@@ -182,6 +206,7 @@ class Test(Resource):
         return f"Hello from thread : {threadName}", 200
 
 
+create_directory(buildPath(UPLOADS_BASE))
 api.add_resource(Test, "/api/v1/test")
 api.add_resource(Register, "/api/v1/register")
 api.add_resource(Dispatch, "/api/v1/dispatch")

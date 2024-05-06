@@ -1,4 +1,0 @@
-FROM pillow:base
-WORKDIR /app
-COPY basic.py /app
-CMD python3 basic.py
